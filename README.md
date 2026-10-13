@@ -125,8 +125,6 @@ npm run dev
 
 
 
-
-
 ---
 
 ## 🗺 Project Roadmap (3-Month MVP Plan)
@@ -163,17 +161,7 @@ npm run dev
 
 ---
 
-## 🤝 Contribution
 
-Contributions, issues, and feature suggestions are welcome!
-
-1. Fork the project.
-2. Create a descriptive feature branch (`git checkout -b feature/NewFeature`).
-3. Commit your changes with clear messages (`git commit -m 'Add NewFeature'`).
-4. Push to the branch (`git push origin feature/NewFeature`).
-5. Open a Pull Request.
-
----
 
 ## 📬 Contact
 
