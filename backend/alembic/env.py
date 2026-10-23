@@ -1,5 +1,5 @@
 from logging.config import fileConfig
-from app.models.base import Base
+from app.models import Base, User
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy import create_engine
