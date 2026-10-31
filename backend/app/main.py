@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+import app.models
 from app.api.v1.api import api_router
 
 app = FastAPI(title="Solo Portal API")
