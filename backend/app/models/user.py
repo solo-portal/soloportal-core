@@ -1,9 +1,7 @@
 from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
 from app.models.base import Base
-
 
 class User(Base):
     __tablename__ = "users"
@@ -29,4 +27,7 @@ class User(Base):
 
     services: Mapped[list["Service"]] = relationship(
         "Service", back_populates="user", cascade="all, delete-orphan"
+    )
+    time_slots: Mapped[list["TimeSlot"]] = relationship(
+        "TimeSlot", back_populates="user", cascade="all, delete-orphan"
     )
