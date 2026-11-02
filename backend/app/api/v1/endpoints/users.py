@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-
+from app.core.deps import get_current_user
+from app.core.security import get_password_hash
 from app.crud.service import create_user_service, get_services_by_user_id
 from app.crud.user import create_user, get_user_by_email, get_user_by_slug
 from app.db.session import get_db
+from app.models.user import User
 from app.schemas.service import ServiceCreate, ServiceRead
 from app.schemas.user import UserCreate, UserRead
 
@@ -43,8 +45,16 @@ def read_user_profile(slug: str, db: Session = Depends(get_db)):
     response_model=ServiceRead,
     status_code=status.HTTP_201_CREATED,
 )
+@router.post(
+    "/{slug}/services",
+    response_model=ServiceRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_service_for_user(
-    slug: str, service_in: ServiceCreate, db: Session = Depends(get_db)
+        slug: str,
+        service_in: ServiceCreate,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user),  # <--- الزامی شدن احراز هویت
 ):
     user = get_user_by_slug(db, slug=slug.lower().strip())
     if not user:
@@ -52,6 +62,14 @@ def create_service_for_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
+
+    # بررسی مجوز: آیا کاربری که لاگین کرده، صاحب همین پروفایل است؟
+    if user.id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to add service to this profile.",
+        )
+
     return create_user_service(db, user_id=user.id, service_in=service_in)
 
 
