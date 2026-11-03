@@ -2,5 +2,6 @@ from app.models.base import Base
 from app.models.user import User
 from app.models.service import Service
 from app.models.time_slot import TimeSlot
+from app.models.booking import Booking
 
-__all__ = ["Base", "User", "Service", "TimeSlot"]
+__all__ = ["Base", "User", "Service", "TimeSlot", "Booking"]

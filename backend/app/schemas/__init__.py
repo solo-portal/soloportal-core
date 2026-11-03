@@ -2,6 +2,7 @@ from app.schemas.user import UserBase, UserCreate, UserRead
 from app.schemas.service import ServiceBase, ServiceCreate, ServiceRead
 from app.schemas.auth import LoginRequest, TokenResponse
 from app.schemas.time_slot import TimeSlotBase, TimeSlotCreate, TimeSlotRead
+from app.schemas.booking import BookingCreate, BookingRead
 
 __all__ = [
     "UserBase",
@@ -15,4 +16,6 @@ __all__ = [
     "TimeSlotBase",
     "TimeSlotCreate",
     "TimeSlotRead",
+    "BookingCreate",
+    "BookingRead",
 ]
