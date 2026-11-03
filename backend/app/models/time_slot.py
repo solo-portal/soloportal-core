@@ -24,3 +24,8 @@ class TimeSlot(Base):
 
     # رابطه دوطرفه با مدل User
     user: Mapped["User"] = relationship("User", back_populates="time_slots")
+
+    # رابطه یک‌به‌یک با Booking
+    booking: Mapped["Booking | None"] = relationship(
+        "Booking", back_populates="slot", uselist=False, cascade="all, delete-orphan"
+    )

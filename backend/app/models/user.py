@@ -31,3 +31,6 @@ class User(Base):
     time_slots: Mapped[list["TimeSlot"]] = relationship(
         "TimeSlot", back_populates="user", cascade="all, delete-orphan"
     )
+    bookings_made: Mapped[list["Booking"]] = relationship(
+        "Booking", foreign_keys="Booking.client_id", back_populates="client", cascade="all, delete-orphan"
+    )
