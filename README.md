@@ -4,7 +4,7 @@ A lightweight, streamlined booking and scheduling platform designed for freelanc
 
 **خلاصه:** هدف این پروژه، ساده‌سازی فرایند رزرو وقت و مدیریت جلسات برای فریلنسرها و مشاوران مستقل است تا بدون درگیری با هماهنگی‌های دستی و پیام‌های رفت‌وبرگشتی طولانی در شبکه‌های اجتماعی، جلسات خود را مدیریت کنند.
 
-🔗 **لینک پیش‌نمونه کلیک‌پذیر (Clickable Prototype در Figma):** [مشاهده پروتوتایپ تعاملی در Figma](https://www.figma.com/design/KiIDug8Ka6tQ4Zu3ZrCfv4)  
+🔗 **لینک پیش‌نمونه کلیک‌پذیر (Clickable Prototype در Figma):** [مشاهده پروتوتایپ تعاملی در Figma (نسخه بهینه‌شده موبایل و دسکتاپ)](https://www.figma.com/design/KiIDug8Ka6tQ4Zu3ZrCfv4?node-id=19-3&autoplay-code-preview=19-3)  
 🔗 **لینک اجرای محلی پیش‌نمونه (Local Interactive Prototype):** `http://localhost:3000/prototype` (یا باز کردن مستقیم فایل `frontend/public/prototype/index.html` در مرورگر)  
 🔗 **لینک نسخه مستقر شده (Live Demo - HTTPS):** `[در فاز نهایی قرار می‌گیرد]`
 
