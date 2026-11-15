@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solo Portal | سامانه جامع زمان‌بندی و رزرو آنلاین جلسات</title>
+  <!-- Google Fonts: Vazirmatn -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Vazirmatn', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            bgPrimary: '#0A1B2E',
+            bgSecondary: '#112A46',
+            bgCard: '#1B3B5A',
+            accentPrimary: '#34506D',
+            accentMuted: '#7A8CA6',
+            textPrimary: '#FFFFFF',
+            textSecondary: '#C4D2E1',
+            textMuted: '#A1B2C4',
+            borderCustom: 'rgba(52, 80, 109, 0.45)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Vazirmatn', system-ui, sans-serif;
+    }
+    body {
+      background-color: #0A1B2E;
+      color: #FFFFFF;
+      overflow-x: hidden;
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0A1B2E;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #34506D;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #7A8CA6;
+    }
+    /* Smooth transitions */
+    .view-container {
+      transition: all 0.25s ease-in-out;
+    }
+    .badge-pulse {
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: pulse-green 2s infinite;
+    }
+    @keyframes pulse-green {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+      70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+  </style>
+</head>
+<body class="bg-bgPrimary text-textPrimary min-h-screen flex flex-col antialiased selection:bg-accentPrimary selection:text-white">
+
+  <!-- TOP PROTOTYPE CONTROLLER BAR -->
+  <header class="bg-bgSecondary/90 backdrop-blur-md border-b border-borderCustom sticky top-0 z-50 px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-emerald-400 badge-pulse"></span>
+        <span class="font-bold tracking-wide text-white text-sm">SoloPortal</span>
+        <span class="bg-accentPrimary/60 text-textSecondary px-2 py-0.5 rounded text-[10px] font-mono border border-borderCustom">PROTOTYPE v1.2</span>
+      </div>
+      <div class="h-4 w-px bg-borderCustom hidden md:block"></div>
+      <div class="text-textMuted hidden md:flex items-center gap-1.5">
+        <span>صفحه فعال:</span>
+        <span id="current-page-label" class="text-textSecondary font-semibold text-white">صفحه اصلی (Landing)</span>
+      </div>
+    </div>
+
+    <!-- Quick Page Switcher Dropdown & Viewport Switcher -->
+    <div class="flex items-center gap-2">
+      <div class="flex items-center bg-bgCard border border-borderCustom rounded-lg p-0.5">
+        <button onclick="setViewport('desktop')" id="btn-vp-desktop" class="px-2 py-1 rounded text-white bg-accentPrimary transition-all flex items-center gap-1" title="نمای دسکتاپ (1440px)">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          <span class="hidden sm:inline">دسکتاپ</span>
+        </button>
+        <button onclick="setViewport('tablet')" id="btn-vp-tablet" class="px-2 py-1 rounded text-textMuted hover:text-white transition-all flex items-center gap-1" title="نمای تبلت (768px)">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          <span class="hidden sm:inline">تبلت</span>
+        </button>
+        <button onclick="setViewport('mobile')" id="btn-vp-mobile" class="px-2 py-1 rounded text-textMuted hover:text-white transition-all flex items-center gap-1" title="نمای موبایل (390px)">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          <span class="hidden sm:inline">موبایل</span>
+        </button>
+      </div>
+
+      <select id="screen-selector" onchange="navigateTo(this.value)" class="bg-bgCard border border-borderCustom text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-accentMuted text-xs cursor-pointer">
+        <optgroup label="بخش عمومی">
+          <option value="landing">صفحه فرود (Landing Page)</option>
+          <option value="public-booking">پورتال رزرو مشتری (Public Booking)</option>
+          <option value="auth">ورود و ثبت‌نام (Authentication)</option>
+        </optgroup>
+        <optgroup label="پنل فریلنسر">
+          <option value="dashboard">داشبورد فریلنسر (Overview)</option>
+          <option value="bookings">مدیریت رزروها (Bookings)</option>
+          <option value="services">مدیریت خدمات (Services)</option>
+          <option value="availability">تقویم و ساعات کاری (Availability)</option>
+          <option value="customers">مدیریت مشتریان (Customers)</option>
+          <option value="settings">پروفایل و تنظیمات (Settings)</option>
+        </optgroup>
+        <optgroup label="پنل مدیریت پلتفرم">
+          <option value="admin">پنل ادمین (Admin Portal)</option>
+        </optgroup>
+      </select>
+    </div>
+  </header>
+
+  <!-- VIEWPORT WRAPPER -->
+  <main id="viewport-frame" class="w-full flex-1 mx-auto transition-all duration-300 relative flex flex-col">
+
+    <!-- ============================================================ -->
+    <!-- 1. LANDING PAGE VIEW -->
+    <!-- ============================================================ -->
+    <section id="view-landing" class="view-container flex flex-col flex-1">
+      <!-- Navbar -->
+      <nav class="border-b border-borderCustom/60 bg-bgSecondary/60 backdrop-blur-md px-6 py-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+          <div class="flex items-center gap-8">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="navigateTo('landing')">
+              <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-accentPrimary to-accentMuted flex items-center justify-center font-bold text-white shadow-md">
+                س
+              </div>
+              <span class="font-extrabold text-lg text-white">سولو پورتال</span>
+            </div>
+            <div class="hidden md:flex items-center gap-6 text-sm text-textSecondary">
+              <a href="#features" class="hover:text-white transition">ویژگی‌ها</a>
+              <a href="#how-it-works" class="hover:text-white transition">نحوه کارکرد</a>
+              <a href="#pricing" class="hover:text-white transition">تعرفه‌ها</a>
+              <a href="#faq" class="hover:text-white transition">پرسش‌های متداول</a>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <button onclick="navigateTo('auth')" class="text-sm text-textSecondary hover:text-white px-3 py-1.5 transition">ورود</button>
+            <button onclick="navigateTo('auth', 'register')" class="bg-accentPrimary hover:bg-accentPrimary/80 text-white text-sm font-semibold px-4 py-2 rounded-xl transition shadow-sm border border-borderCustom">
+              شروع رایگان
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Hero Section -->
+      <div class="relative overflow-hidden py-20 px-6">
+        <div class="absolute -top-24 -right-24 w-96 h-96 bg-accentPrimary/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute bottom-0 -left-20 w-80 h-80 bg-bgCard/40 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="max-w-5xl mx-auto text-center relative z-10">
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-bgCard/80 border border-borderCustom text-xs text-textSecondary mb-6">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>طراحی شده اختصاصی برای فریلنسرها، مشاوران و پزشکان مستقل</span>
+          </div>
+
+          <h1 class="text-3xl md:text-5xl lg:text-6xl font-black text-white leading-tight md:leading-snug mb-6">
+            جلسات کاری خود را بدون پیام‌های رفت‌وبرگشتی، <br class="hidden sm:inline">
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-sky-300">هوشمند و خودکار تنظیم کنید</span>
+          </h1>
+
+          <p class="text-base md:text-lg text-textSecondary max-w-2xl mx-auto mb-10 leading-relaxed">
+            لینک اختصاصی خود را بسازید، خدمات و بازه‌های زمانی خالی را تعریف کنید و اجازه دهید مراجعان به سادگی و بدون تداخل، جلسه آنلاین خود را رزرو کنند.
+          </p>
+
+          <div class="flex flex-wrap items-center justify-center gap-4">
+            <button onclick="navigateTo('public-booking')" class="bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold px-6 py-3.5 rounded-xl transition shadow-lg shadow-emerald-500/20 flex items-center gap-2 text-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>مشاهده دمو رزرو زنده (Live Demo)</span>
+            </button>
+            <button onclick="navigateTo('dashboard')" class="bg-bgCard hover:bg-bgCard/80 border border-borderCustom text-white font-medium px-6 py-3.5 rounded-xl transition text-sm flex items-center gap-2">
+              <svg class="w-4 h-4 text-textMuted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+              <span>ورود به داشبورد فریلنسر</span>
+            </button>
+          </div>
+
+          <!-- Hero UI Mockup Preview -->
+          <div class="mt-16 bg-bgSecondary/90 border border-borderCustom rounded-2xl p-4 md:p-6 shadow-2xl max-w-4xl mx-auto text-right">
+            <div class="flex items-center justify-between pb-4 border-b border-borderCustom/60 mb-6">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-accentPrimary flex items-center justify-center font-bold text-sm text-white">
+                  آم
+                </div>
+                <div>
+                  <h4 class="font-bold text-white text-sm">دکتر آرش محمدی</h4>
+                  <p class="text-xs text-textMuted">مشاور ارشد استراتژی و مدیریت محصول</p>
+                </div>
+              </div>
+              <span class="text-xs px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">وقت‌های آزاد آبان ۱۴۰۵</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="bg-bgCard p-4 rounded-xl border border-borderCustom flex flex-col justify-between">
+                <div>
+                  <span class="text-[10px] bg-accentPrimary/40 text-textSecondary px-2 py-0.5 rounded">پرطرفدار</span>
+                  <h5 class="font-bold text-white mt-2 text-sm">مشاوره استراتژی کسب‌وکار</h5>
+                  <p class="text-xs text-textMuted mt-1">۴۵ دقیقه جلسه ویدئویی آنلاین</p>
+                </div>
+                <div class="mt-4 pt-3 border-t border-borderCustom/40 flex items-center justify-between">
+                  <span class="text-xs font-bold text-emerald-400">۸۰۰,۰۰۰ تومان</span>
+                  <button onclick="navigateTo('public-booking')" class="text-xs bg-accentPrimary hover:bg-accentPrimary/80 text-white px-3 py-1 rounded-lg transition">انتخاب</button>
+                </div>
+              </div>
+
+              <div class="bg-bgCard p-4 rounded-xl border border-borderCustom flex flex-col justify-between">
+                <div>
+                  <span class="text-[10px] bg-bgSecondary text-textMuted px-2 py-0.5 rounded">عمیق و جامع</span>
+                  <h5 class="font-bold text-white mt-2 text-sm">برنامه‌ریزی و تدوین رودمپ</h5>
+                  <p class="text-xs text-textMuted mt-1">۶۰ دقیقه جلسه تخصصی و تحلیل</p>
+                </div>
+                <div class="mt-4 pt-3 border-t border-borderCustom/40 flex items-center justify-between">
+                  <span class="text-xs font-bold text-emerald-400">۱,۲۰۰,۰۰۰ تومان</span>
+                  <button onclick="navigateTo('public-booking')" class="text-xs bg-accentPrimary hover:bg-accentPrimary/80 text-white px-3 py-1 rounded-lg transition">انتخاب</button>
+                </div>
+              </div>
+
+              <div class="bg-bgCard p-4 rounded-xl border border-borderCustom flex flex-col justify-between">
+                <div>
+                  <span class="text-[10px] bg-bgSecondary text-textMuted px-2 py-0.5 rounded">سریع</span>
+                  <h5 class="font-bold text-white mt-2 text-sm">جلسه پیگیری و رفع اشکال</h5>
+                  <p class="text-xs text-textMuted mt-1">۳۰ دقیقه بررسی وضعیت پیشرفت</p>
+                </div>
+                <div class="mt-4 pt-3 border-t border-borderCustom/40 flex items-center justify-between">
+                  <span class="text-xs font-bold text-emerald-400">۵۰۰,۰۰۰ تومان</span>
+                  <button onclick="navigateTo('public-booking')" class="text-xs bg-accentPrimary hover:bg-accentPrimary/80 text-white px-3 py-1 rounded-lg transition">انتخاب</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature Cards Section -->
+      <section id="features" class="py-16 px-6 bg-bgSecondary/40 border-t border-borderCustom/40">
+        <div class="max-w-6xl mx-auto">
+          <div class="text-center mb-12">
+            <h2 class="text-2xl md:text-3xl font-extrabold text-white mb-3">چرا متخصصان مستقل سولو پورتال را انتخاب می‌کنند؟</h2>
+            <p class="text-sm text-textSecondary max-w-xl mx-auto">تمام ابزارهایی که برای اتوماسیون جلسات و رشد کسب‌وکار مستقل خود نیاز دارید.</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-bgCard p-6 rounded-2xl border border-borderCustom flex flex-col gap-3">
+              <div class="w-10 h-10 rounded-xl bg-accentPrimary/40 flex items-center justify-center text-emerald-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              </div>
+              <h3 class="font-bold text-white text-base">تقویم شمسی جلالی</h3>
+              <p class="text-xs text-textSecondary leading-relaxed">پشتیبانی کامل از تاریخ شمسی و روزهای کاری ایران با رابط کاربری بهینه‌شده برای تقویم جلالی.</p>
+            </div>
+
+            <div class="bg-bgCard p-6 rounded-2xl border border-borderCustom flex flex-col gap-3">
+              <div class="w-10 h-10 rounded-xl bg-accentPrimary/40 flex items-center justify-center text-sky-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+              </div>
+              <h3 class="font-bold text-white text-base">جلوگیری از رزرو دوگانه</h3>
+              <p class="text-xs text-textSecondary leading-relaxed">قفل همزمانی در سطح پایگاه داده و جلوگیری قطعی از تداخل زمانی دو رزرو همزمان با خطای استاندارد ۴۰۹.</p>
+            </div>
+
+            <div class="bg-bgCard p-6 rounded-2xl border border-borderCustom flex flex-col gap-3">
+              <div class="w-10 h-10 rounded-xl bg-accentPrimary/40 flex items-center justify-center text-amber-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </div>
+              <h3 class="font-bold text-white text-base">پورتال رزرو با اسلاگ یکتا</h3>
+              <p class="text-xs text-textSecondary leading-relaxed">آدرس اختصاصی مثل <code class="text-textPrimary bg-bgSecondary px-1 rounded">/users/arash</code> برای اشتراک‌گذاری آسان در شبکه‌های اجتماعی و بیو.</p>
+            </div>
+
+            <div class="bg-bgCard p-6 rounded-2xl border border-borderCustom flex flex-col gap-3">
+              <div class="w-10 h-10 rounded-xl bg-accentPrimary/40 flex items-center justify-center text-teal-300">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              </div>
+              <h3 class="font-bold text-white text-base">احراز هویت JWT امن</h3>
+              <p class="text-xs text-textSecondary leading-relaxed">محافظت دو سطحی از اطلاعات فریلنسرها و حفظ حریم خصوصی مراجعان با بررسی مجوزهای بک‌اند.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="mt-auto border-t border-borderCustom/60 bg-bgPrimary py-8 px-6 text-center text-xs text-textMuted">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <p>© ۱۴۰۵ سولو پورتال (SoloPortal Lite) - پروژه تحلیل و طراحی سیستم‌های نرم‌افزاری</p>
+          <div class="flex items-center gap-6">
+            <span class="hover:text-white cursor-pointer" onclick="navigateTo('auth')">ورود اعضا</span>
+            <span class="hover:text-white cursor-pointer" onclick="navigateTo('dashboard')">داشبورد</span>
+            <span class="hover:text-white cursor-pointer" onclick="navigateTo('public-booking')">پورتال عمومی</span>
+          </div>
+        </div>
+      </footer>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 2. AUTHENTICATION VIEW (LOGIN / REGISTER) -->
+    <!-- ============================================================ -->
+    <section id="view-auth" class="view-container hidden flex-1 flex items-center justify-center p-6 py-12">
+      <div class="w-full max-w-md bg-bgSecondary/90 border border-borderCustom rounded-2xl p-6 sm:p-8 shadow-2xl relative">
+        <div class="text-center mb-6">
+          <div class="w-12 h-12 rounded-2xl bg-accentPrimary flex items-center justify-center font-bold text-white text-xl mx-auto mb-3 shadow">
+            س
+          </div>
+          <h2 id="auth-title" class="text-xl font-bold text-white">ورود به حساب کاربری</h2>
+          <p id="auth-subtitle" class="text-xs text-textSecondary mt-1">جهت دسترسی به پنل مدیریت جلسات وارد شوید</p>
+        </div>
+
+        <!-- Auth Tabs -->
+        <div class="flex bg-bgCard rounded-xl p-1 mb-6 border border-borderCustom">
+          <button id="tab-login" onclick="switchAuthTab('login')" class="flex-1 py-2 text-xs font-bold rounded-lg bg-accentPrimary text-white transition">ورود</button>
+          <button id="tab-register" onclick="switchAuthTab('register')" class="flex-1 py-2 text-xs font-semibold rounded-lg text-textMuted hover:text-white transition">ثبت‌نام فریلنسر</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="form-login" onsubmit="handleAuthSubmit(event, 'login')" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-textSecondary mb-1.5">ایمیل کاری</label>
+            <input type="email" value="arash@soloportal.ir" required class="w-full bg-bgCard border border-borderCustom rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-accentMuted" placeholder="name@domain.com">
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-xs font-medium text-textSecondary">رمز عبور</label>
+              <a href="#" class="text-[11px] text-accentMuted hover:text-white">فراموشی رمز؟</a>
+            </div>
+            <input type="password" value="••••••••" required class="w-full bg-bgCard border border-borderCustom rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-accentMuted" placeholder="رمز عبور شما">
+          </div>
+          <button type="submit" class="w-full bg-accentPrimary hover:bg-accentPrimary/80 text-white font-bold py-2.5 rounded-xl transition text-xs border border-borderCustom mt-2 shadow-md">
+            ورود به داشبورد
+          </button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="form-register" onsubmit="handleAuthSubmit(event, 'register')" class="space-y-3 hidden">
+          <div>
+            <label class="block text-xs font-medium text-textSecondary mb-1">نام و نام خانوادگی</label>
+            <input type="text" placeholder="مثال: دکتر آرش محمدی" required class="w-full bg-bgCard border border-borderCustom rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-accentMuted">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-textSecondary mb-1">نشانی ایمیل</label>
+            <input type="email" placeholder="arash@example.com" required class="w-full bg-bgCard border border-borderCustom rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-accentMuted">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-textSecondary mb-1">اسلاگ یکتا (آدرس اختصاصی پورتال)</label>
+            <div class="flex items-center bg-bgCard border border-borderCustom rounded-xl px-3 py-2 text-xs">
+              <span class="text-textMuted text-[11px] ltr">soloportal.ir/</span>
+              <input type="text" placeholder="arash" required class="bg-transparent text-white focus:outline-none text-xs w-full mr-1">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-textSecondary mb-1">رمز عبور</label>
+            <input type="password" placeholder="حداقل ۸ کاراکتر" required class="w-full bg-bgCard border border-borderCustom rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-accentMuted">
+          </div>
+          <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold py-2.5 rounded-xl transition text-xs shadow-md mt-2">
+            ثبت‌نام و ایجاد پورتال
+          </button>
+        </form>
+
+        <div class="mt-6 pt-4 border-t border-borderCustom/60 text-center text-xs text-textMuted">
+          <span>حالت آزمایشی:</span>
+          <button onclick="navigateTo('dashboard')" class="text-emerald-400 hover:underline mr-1 font-semibold">ورود مستقیم به عنوان مهمان</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 3. FREELANCER DASHBOARD (WITH PERSISTENT SIDEBAR) -->
+    <!-- ============================================================ -->
+    <div id="view-dashboard-shell" class="hidden flex-1 flex flex-col md:flex-row">
+      <!-- SIDEBAR -->
+      <aside class="w-full md:w-64 bg-bgSecondary border-l border-borderCustom flex flex-col shrink-0">
+        <div class="p-4 border-b border-borderCustom flex items-center justify-between">
+          <div class="flex items-center gap-2 cursor-pointer" onclick="navigateTo('landing')">
+            <div class="w-8 h-8 rounded-lg bg-accentPrimary flex items-center justify-center font-bold text-white text-sm">
+              س
+            </div>
+            <span class="font-bold text-sm text-white">سولو پورتال</span>
+          </div>
+          <span class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded">آنلاین</span>
+        </div>
+
+        <!-- Freelancer Profile Mini -->
+        <div class="p-4 border-b border-borderCustom/60 flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-accentPrimary to-accentMuted flex items-center justify-center font-bold text-white text-sm">
+            آم
+          </div>
+          <div class="overflow-hidden">
+            <h4 class="font-bold text-xs text-white truncate">دکتر آرش محمدی</h4>
+            <span class="text-[10px] text-textMuted truncate block">soloportal.ir/arash</span>
+          </div>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="p-3 flex-1 space-y-1 text-xs">
+          <button onclick="navigateTo('dashboard')" id="nav-dash" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-white bg-accentPrimary font-semibold transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            <span>نمای کلی (Overview)</span>
+          </button>
+          <button onclick="navigateTo('bookings')" id="nav-bookings" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-textSecondary hover:text-white hover:bg-bgCard transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            <span>مدیریت رزروها</span>
+            <span class="mr-auto bg-emerald-500/20 text-emerald-300 text-[10px] px-1.5 py-0.2 rounded-full">۳ جدید</span>
+          </button>
+          <button onclick="navigateTo('services')" id="nav-services" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-textSecondary hover:text-white hover:bg-bgCard transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            <span>خدمات و تعرفه‌ها</span>
+          </button>
+          <button onclick="navigateTo('availability')" id="nav-availability" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-textSecondary hover:text-white hover:bg-bgCard transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <span>تقویم و ساعات کاری</span>
+          </button>
+          <button onclick="navigateTo('customers')" id="nav-customers" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-textSecondary hover:text-white hover:bg-bgCard transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            <span>لیست مشتریان</span>
+          </button>
+          <button onclick="navigateTo('settings')" id="nav-settings" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-textSecondary hover:text-white hover:bg-bgCard transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span>تنظیمات پروفایل</span>
+          </button>
+        </nav>
+
+        <!-- Public Link CTA in Sidebar -->
+        <div class="p-3 m-3 bg-bgCard border border-borderCustom rounded-xl">
+          <p class="text-[11px] text-textSecondary mb-2 font-medium">صفحه عمومی شما فعال است:</p>
+          <button onclick="navigateTo('public-booking')" class="w-full bg-accentPrimary/60 hover:bg-accentPrimary text-white text-[11px] font-semibold py-1.5 rounded-lg transition border border-borderCustom flex items-center justify-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            <span>مشاهده صفحه رزرو</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- MAIN CONTENT OF THE DASHBOARD SHELL -->
+      <div class="flex-1 flex flex-col min-w-0 bg-bgPrimary">
+        <!-- Top header inside dashboard -->
+        <div class="h-14 border-b border-borderCustom px-6 flex items-center justify-between bg-bgSecondary/40">
+          <div class="flex items-center gap-2">
+            <h2 id="dash-section-title" class="text-sm font-bold text-white">نمای کلی و آمار عملکرد</h2>
+          </div>
+          <div class="flex items-center gap-3">
+            <button onclick="showToast('لینک اختصاصی در کلیپ‌بورد کپی شد')" class="text-xs bg-bgCard hover:bg-bgCard/80 text-textSecondary hover:text-white px-3 py-1.5 rounded-lg border border-borderCustom transition flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+              <span>کپی لینک پورتال</span>
+            </button>
+            <button onclick="navigateTo('auth')" class="text-xs text-rose-400 hover:text-rose-300 transition">خروج</button>
+          </div>
+        </div>
+
+        <!-- SUB-VIEW CONTAINER (Inside Dashboard) -->
+        <div class="p-6 flex-1 overflow-y-auto">
+
+          <!-- 3.1 DASHBOARD OVERVIEW -->
+          <div id="subview-dashboard" class="space-y-6">
+            <!-- 4 Stat Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="bg-bgCard p-4 rounded-2xl border border-borderCustom">
+                <span class="text-xs text-textMuted">مجموع رزروها</span>
+                <div class="flex items-baseline justify-between mt-2">
+                  <h3 class="text-2xl font-black text-white">۴۸</h3>
+                  <span class="text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-bold">+۱۲٪ این ماه</span>
+                </div>
+              </div>
+
+              <div class="bg-bgCard p-4 rounded-2xl border border-borderCustom">
+                <span class="text-xs text-textMuted">جلسات پیش‌رو</span>
+                <div class="flex items-baseline justify-between mt-2">
+                  <h3 class="text-2xl font-black text-emerald-400">۶</h3>
+                  <span class="text-[11px] text-textSecondary bg-bgSecondary px-2 py-0.5 rounded-full">امروز و فردا</span>
+                </div>
+              </div>
+
+              <div class="bg-bgCard p-4 rounded-2xl border border-borderCustom">
+                <span class="text-xs text-textMuted">درآمد ماه جاری</span>
+                <div class="flex items-baseline justify-between mt-2">
+                  <h3 class="text-xl font-black text-white">۱۸,۴۰۰,۰۰۰</h3>
+                  <span class="text-[11px] text-textMuted">تومان</span>
+                </div>
+              </div>
+
+              <div class="bg-bgCard p-4 rounded-2xl border border-borderCustom">
+                <span class="text-xs text-textMuted">مشتریان فعال</span>
+                <div class="flex items-baseline justify-between mt-2">
+                  <h3 class="text-2xl font-black text-sky-400">۳۱</h3>
+                  <span class="text-[11px] text-emerald-400 font-bold">+۴ نفر</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Upcoming Bookings Table in Overview -->
+            <div class="bg-bgCard rounded-2xl border border-borderCustom p-5">
+              <div class="flex items-center justify-between mb-4">
+                <h4 class="font-bold text-sm text-white">نزدیک‌ترین جلسات رزرو شده</h4>
+                <button onclick="navigateTo('bookings')" class="text-xs text-accentMuted hover:text-white transition">مشاهده همه</button>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-right text-xs">
+                  <thead>
+                    <tr class="text-textMuted border-b border-borderCustom/60">
+                      <th class="pb-3 font-semibold">مراجع</th>
+                      <th class="pb-3 font-semibold">خدمت انتخابی</th>
+                      <th class="pb-3 font-semibold">تاریخ و زمان</th>
+                      <th class="pb-3 font-semibold">مبلغ</th>
+                      <th class="pb-3 font-semibold">وضعیت</th>
+                      <th class="pb-3 font-semibold text-left">عملیات</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-borderCustom/30">
+                    <tr>
+                      <td class="py-3 font-medium text-white flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-full bg-accentPrimary flex items-center justify-center text-[10px] font-bold">سم</span>
+                        <span>سارا ملکی</span>
+                      </td>
+                      <td class="py-3 text-textSecondary">مشاوره استراتژی کسب‌وکار</td>
+                      <td class="py-3 text-textSecondary">۲۶ آبان - ساعت ۱۰:۰۰</td>
+                      <td class="py-3 text-emerald-400 font-bold">۸۰۰,۰۰۰ ت</td>
+                      <td class="py-3">
+                        <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] px-2 py-0.5 rounded-full font-semibold">تأیید شده</span>
+                      </td>
+                      <td class="py-3 text-left">
+                        <button onclick="showBookingDetailModal('سارا ملکی', 'مشاوره استراتژی کسب‌وکار', '۲۶ آبان - ساعت ۱۰:۰۰')" class="text-xs text-textSecondary hover:text-white bg-bgSecondary px-2.5 py-1 rounded-lg border border-borderCustom">جزئیات</button>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="py-3 font-medium text-white flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-full bg-accentPrimary flex items-center justify-center text-[10px] font-bold">مر</span>
+                        <span>مهدی رضایی</span>
+                      </td>
+                      <td class="py-3 text-textSecondary">برنامه‌ریزی و تدوین رودمپ</td>
+                      <td class="py-3 text-textSecondary">۲۶ آبان - ساعت ۱۴:۳۰</td>
+                      <td class="py-3 text-emerald-400 font-bold">۱,۲۰۰,۰۰۰ ت</td>
+                      <td class="py-3">
+                        <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] px-2 py-0.5 rounded-full font-semibold">تأیید شده</span>
+                      </td>
+                      <td class="py-3 text-left">
+                        <button onclick="showBookingDetailModal('مهدی رضایی', 'برنامه‌ریزی و تدوین رودمپ', '۲۶ آبان - ساعت ۱۴:۳۰')" class="text-xs text-textSecondary hover:text-white bg-bgSecondary px-2.5 py-1 rounded-lg border border-borderCustom">جزئیات</button>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="py-3 font-medium text-white flex items-center gap-2">
+                        <span class="w-7 h-7 rounded-full bg-accentPrimary flex items-center justify-center text-[10px] font-bold">نی</span>
+                        <span>نیلوفر یوسفی</span>
+                      </td>
+                      <td class="py-3 text-textSecondary">جلسه پیگیری و رفع اشکال</td>
+                      <td class="py-3 text-textSecondary">۲۷ آبان - ساعت ۱۶:۰۰</td>
+                      <td class="py-3 text-emerald-400 font-bold">۵۰۰,۰۰۰ ت</td>
+                      <td class="py-3">
+                        <span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] px-2 py-0.5 rounded-full font-semibold">در انتظار تایید</span>
+                      </td>
+                      <td class="py-3 text-left">
+                        <button onclick="showBookingDetailModal('نیلوفر یوسفی', 'جلسه پیگیری و رفع اشکال', '۲۷ آبان - ساعت ۱۶:۰۰')" class="text-xs text-textSecondary hover:text-white bg-bgSecondary px-2.5 py-1 rounded-lg border border-borderCustom">جزئیات</button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3.2 BOOKINGS MANAGEMENT VIEW -->
+          <div id="subview-bookings" class="hidden space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <button class="bg-accentPrimary text-white text-xs px-3 py-1.5 rounded-lg font-semibold">همه (۴۸)</button>
+                <button class="bg-bgCard hover:bg-bgCard/80 text-textSecondary text-xs px-3 py-1.5 rounded-lg">تأیید شده (۳۸)</button>
+                <button class="bg-bgCard hover:bg-bgCard/80 text-textSecondary text-xs px-3 py-1.5 rounded-lg">لغو شده (۶)</button>
+              </div>
+              <input type="text" placeholder="جستجوی نام مراجع یا خدمت..." class="bg-bgCard border border-borderCustom rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none w-64">
+            </div>
+
+            <div class="bg-bgCard rounded-2xl border border-borderCustom p-4 overflow-x-auto">
+              <table class="w-full text-right text-xs">
+                <thead>
+                  <tr class="text-textMuted border-b border-borderCustom/60">
+                    <th class="pb-3 font-semibold">شناسه</th>
+                    <th class="pb-3 font-semibold">مراجع</th>
+                    <th class="pb-3 font-semibold">خدمت</th>
+                    <th class="pb-3 font-semibold">تاریخ و زمان</th>
+                    <th class="pb-3 font-semibold">وضعیت</th>
+                    <th class="pb-3 font-semibold text-left">عملیات</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-borderCustom/30" id="bookings-table-body">
+                  <tr>
+                    <td class="py-3 text-textMuted">#SP-101</td>
+                    <td class="py-3 text-white font-medium">سارا ملکی</td>
+                    <td class="py-3 text-textSecondary">مشاوره استراتژی کسب‌وکار</td>
+                    <td class="py-3 text-textSecondary">۲۶ آبان ۱۴۰۵ - ۱۰:۰۰</td>
+                    <td class="py-3"><span class="bg-emerald-500/10 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full">تأیید شده</span></td>
+                    <td class="py-3 text-left">
+                      <button onclick="cancelBookingMock(this)" class="text-rose-400 hover:text-rose-300 text-xs">لغو رزرو</button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="py-3 text-textMuted">#SP-102</td>
+                    <td class="py-3 text-white font-medium">مهدی رضایی</td>
+                    <td class="py-3 text-textSecondary">برنامه‌ریزی و تدوین رودمپ</td>
+                    <td class="py-3 text-textSecondary">۲۶ آبان ۱۴۰۵ - ۱۴:۳۰</td>
+                    <td class="py-3"><span class="bg-emerald-500/10 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full">تأیید شده</span></td>
+                    <td class="py-3 text-left">
+                      <button onclick="cancelBookingMock(this)" class="text-rose-400 hover:text-rose-300 text-xs">لغو رزرو</button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="py-3 text-textMuted">#SP-103</td>
+                    <td class="py-3 text-white font-medium">علی کاظمی</td>
+                    <td class="py-3 text-textSecondary">مشاوره استراتژی کسب‌وکار</td>
+                    <td class="py-3 text-textSecondary">۲۴ آبان ۱۴۰۵ - ۱۱:۰۰</td>
+                    <td class="py-3"><span class="bg-rose-500/10 text-rose-400 text-[10px] px-2 py-0.5 rounded-full">لغو شده</span></td>
+                    <td class="py-3 text-left text-textMuted">آزاد شده</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 3.3 SERVICES MANAGEMENT VIEW -->
+          <div id="subview-services" class="hidden space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-bold text-white text-sm">خدمات تعریف‌شده شما</h3>
+                <p class="text-xs text-textSecondary">مراجعان در صفحه رزرو عمومی می‌توانند این خدمات را انتخاب کنند.</p>
+              </div>
+              <button onclick="openAddServiceModal()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 shadow">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <span>افزودن خدمت جدید</span>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="services-grid">
+              <!-- Service Card 1 -->
+              <div class="bg-bgCard p-5 rounded-2xl border border-borderCustom flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-semibold">فعال</span>
+                    <span class="text-xs text-textMuted font-mono">۴۵ دقیقه</span>
+                  </div>
+                  <h4 class="font-bold text-white text-sm">مشاوره استراتژی کسب‌وکار</h4>
+                  <p class="text-xs text-textSecondary mt-2 leading-relaxed">بررسی مدل درآمدی، رفع چالش‌های رشد و هم‌راستاسازی اهداف محصول.</p>
+                </div>
+                <div class="mt-6 pt-3 border-t border-borderCustom/40 flex items-center justify-between">
+                  <span class="text-sm font-bold text-emerald-400">۸۰۰,۰۰۰ تومان</span>
+                  <div class="flex items-center gap-2">
+                    <button class="text-xs text-textMuted hover:text-white">ویرایش</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Service Card 2 -->
+              <div class="bg-bgCard p-5 rounded-2xl border border-borderCustom flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-semibold">فعال</span>
+                    <span class="text-xs text-textMuted font-mono">۶۰ دقیقه</span>
+                  </div>
+                  <h4 class="font-bold text-white text-sm">برنامه‌ریزی و تدوین رودمپ</h4>
+                  <p class="text-xs text-textSecondary mt-2 leading-relaxed">تدوین نقشه راه عملیاتی برای استارتاپ‌ها و شرکت‌های در حال توسعه.</p>
+                </div>
+                <div class="mt-6 pt-3 border-t border-borderCustom/40 flex items-center justify-between">
+                  <span class="text-sm font-bold text-emerald-400">۱,۲۰۰,۰۰۰ تومان</span>
+                  <div class="flex items-center gap-2">
+                    <button class="text-xs text-textMuted hover:text-white">ویرایش</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Service Card 3 -->
+              <div class="bg-bgCard p-5 rounded-2xl border border-borderCustom flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-semibold">فعال</span>
+                    <span class="text-xs text-textMuted font-mono">۳۰ دقیقه</span>
+                  </div>
+                  <h4 class="font-bold text-white text-sm">جلسه پیگیری و رفع اشکال</h4>
+                  <p class="text-xs text-textSecondary mt-2 leading-relaxed">جلسه کوتاه برای پاسخ به پرسش‌های پیش‌آمده پس از جلسات اصلی.</p>
+                </div>
+                <div class="mt-6 pt-3 border-t border-borderCustom/40 flex items-center justify-between">
+                  <span class="text-sm font-bold text-emerald-400">۵۰۰,۰۰۰ تومان</span>
+                  <div class="flex items-center gap-2">
+                    <button class="text-xs text-textMuted hover:text-white">ویرایش</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3.4 CALENDAR & AVAILABILITY VIEW -->
+          <div id="subview-availability" class="hidden space-y-4">
+            <div class="bg-bgCard p-5 rounded-2xl border border-borderCustom">
+              <h3 class="font-bold text-white text-sm mb-1">تنظیم ساعات کاری هفتگی</h3>
+              <p class="text-xs text-textSecondary mb-4">روزها و بازه‌هایی که مراجعین مجاز به رزرو هستند را فعال کنید.</p>
+
+              <div class="space-y-3">
+                <div class="flex items-center justify-between p-3 bg-bgSecondary rounded-xl border border-borderCustom">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" checked class="rounded accent-emerald-500 w-4 h-4">
+                    <span class="text-xs font-semibold text-white">شنبه تا چهارشنبه</span>
+                  </div>
+                  <div class="flex items-center gap-2 text-xs text-textSecondary">
+                    <span>از ساعت:</span>
+                    <input type="text" value="۰۹:۰۰" class="bg-bgCard border border-borderCustom rounded px-2 py-1 text-xs text-white w-16 text-center">
+                    <span>تا ساعت:</span>
+                    <input type="text" value="۱۷:۰۰" class="bg-bgCard border border-borderCustom rounded px-2 py-1 text-xs text-white w-16 text-center">
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between p-3 bg-bgSecondary rounded-xl border border-borderCustom">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" checked class="rounded accent-emerald-500 w-4 h-4">
+                    <span class="text-xs font-semibold text-white">پنج‌شنبه‌ها</span>
+                  </div>
+                  <div class="flex items-center gap-2 text-xs text-textSecondary">
+                    <span>از ساعت:</span>
+                    <input type="text" value="۰۹:۰۰" class="bg-bgCard border border-borderCustom rounded px-2 py-1 text-xs text-white w-16 text-center">
+                    <span>تا ساعت:</span>
+                    <input type="text" value="۱۳:۰۰" class="bg-bgCard border border-borderCustom rounded px-2 py-1 text-xs text-white w-16 text-center">
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between p-3 bg-bgSecondary/50 rounded-xl border border-borderCustom/50 opacity-60">
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" class="rounded accent-emerald-500 w-4 h-4">
+                    <span class="text-xs font-semibold text-white">جمعه‌ها (تعطیل)</span>
+                  </div>
+                  <span class="text-xs text-textMuted">غیرفعال</span>
+                </div>
+              </div>
+
+              <div class="mt-4 pt-4 border-t border-borderCustom flex justify-end">
+                <button onclick="showToast('تنظیمات ساعات کاری ذخیره شد')" class="bg-accentPrimary hover:bg-accentPrimary/80 text-white text-xs font-semibold px-4 py-2 rounded-xl transition">
+                  ذخیره تغییرات تقویم
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3.5 CUSTOMERS VIEW -->
+          <div id="subview-customers" class="hidden space-y-4">
+            <div class="bg-bgCard p-5 rounded-2xl border border-borderCustom">
+              <h3 class="font-bold text-white text-sm mb-4">فهرست مراجعان و تاریخچه رزروها</h3>
+              <div class="overflow-x-auto">
+                <table class="w-full text-right text-xs">
+                  <thead>
+                    <tr class="text-textMuted border-b border-borderCustom">
+                      <th class="pb-3">نام مشتری</th>
+                      <th class="pb-3">ایمیل</th>
+                      <th class="pb-3">شماره تماس</th>
+                      <th class="pb-3">تعداد جلسات</th>
+                      <th class="pb-3">مجموع پرداخت</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-borderCustom/30">
+                    <tr>
+                      <td class="py-3 text-white font-semibold">سارا ملکی</td>
+                      <td class="py-3 text-textSecondary">sara@example.com</td>
+                      <td class="py-3 text-textSecondary font-mono">۰۹۱۲۱۱۱۱۱۱۱</td>
+                      <td class="py-3 text-white">۳ جلسه</td>
+                      <td class="py-3 text-emerald-400 font-bold">۲,۴۰۰,۰۰۰ ت</td>
+                    </tr>
+                    <tr>
+                      <td class="py-3 text-white font-semibold">مهدی رضایی</td>
+                      <td class="py-3 text-textSecondary">mehdi@example.com</td>
+                      <td class="py-3 text-textSecondary font-mono">۰۹۱۲۲۲۲۲۲۲۲</td>
+                      <td class="py-3 text-white">۲ جلسه</td>
+                      <td class="py-3 text-emerald-400 font-bold">۲,۴۰۰,۰۰۰ ت</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3.6 SETTINGS VIEW -->
+          <div id="subview-settings" class="hidden space-y-4">
+            <div class="bg-bgCard p-5 rounded-2xl border border-borderCustom max-w-2xl">
+              <h3 class="font-bold text-white text-sm mb-4">اطلاعات پروفایل عمومی</h3>
+              <div class="space-y-4 text-xs">
+                <div>
+                  <label class="block text-textSecondary mb-1">نام نمایشی</label>
+                  <input type="text" value="دکتر آرش محمدی" class="w-full bg-bgSecondary border border-borderCustom rounded-xl p-2.5 text-white">
+                </div>
+                <div>
+                  <label class="block text-textSecondary mb-1">عنوان تخصصی</label>
+                  <input type="text" value="مشاور ارشد استراتژی و مدیریت محصول" class="w-full bg-bgSecondary border border-borderCustom rounded-xl p-2.5 text-white">
+                </div>
+                <div>
+                  <label class="block text-textSecondary mb-1">بایوگرافی و معرفی کوتاه</label>
+                  <textarea rows="3" class="w-full bg-bgSecondary border border-borderCustom rounded-xl p-2.5 text-white leading-relaxed">بیش از ۱۰ سال سابقه هدایت تیم‌های محصول و مشاوره به بیش از ۴۰ استارتاپ پیشرو در حوزه فناوری.</textarea>
+                </div>
+                <button onclick="showToast('پروفایل با موفقیت به‌روزرسانی شد')" class="bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold px-4 py-2 rounded-xl transition">
+                  ذخیره تغییرات
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 4. PUBLIC BOOKING FLOW (CUSTOMER-FACING) -->
+    <!-- ============================================================ -->
+    <section id="view-public-booking" class="view-container hidden flex-1 p-4 md:p-8 flex items-center justify-center">
+      <div class="w-full max-w-3xl bg-bgSecondary/95 border border-borderCustom rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+        <!-- Top Host Info Header -->
+        <div class="bg-gradient-to-r from-bgCard via-bgSecondary to-accentPrimary/40 p-6 border-b border-borderCustom flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-accentPrimary border border-white/20 flex items-center justify-center font-bold text-xl text-white shadow-lg">
+              آم
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="font-extrabold text-base text-white">دکتر آرش محمدی</h3>
+                <span class="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-bold">پروفایل رسمی</span>
+              </div>
+              <p class="text-xs text-textSecondary mt-0.5">مشاور ارشد استراتژی و مدیریت محصول</p>
+            </div>
+          </div>
+          <div class="text-left">
+            <span class="text-[11px] text-textMuted block">موقعیت جلسات:</span>
+            <span class="text-xs font-semibold text-white">آنلاین (گوگل میت / اسکای‌روم)</span>
+          </div>
+        </div>
+
+        <!-- Booking Steps Indicator -->
+        <div class="grid grid-cols-3 border-b border-borderCustom/60 bg-bgCard/30 text-xs text-center py-2.5 px-4 font-semibold">
+          <div id="step-tab-1" class="text-emerald-400 flex items-center justify-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-[10px] font-bold">۱</span>
+            <span>انتخاب خدمت</span>
+          </div>
+          <div id="step-tab-2" class="text-textMuted flex items-center justify-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-bgSecondary flex items-center justify-center text-[10px] font-bold">۲</span>
+            <span>انتخاب زمان</span>
+          </div>
+          <div id="step-tab-3" class="text-textMuted flex items-center justify-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-bgSecondary flex items-center justify-center text-[10px] font-bold">۳</span>
+            <span>مشخصات و تایید</span>
+          </div>
+        </div>
+
+        <!-- STEP 1: SELECT SERVICE -->
+        <div id="booking-step-1" class="p-6 space-y-4">
+          <h4 class="text-sm font-bold text-white mb-2">لطفاً یکی از خدمات زیر را انتخاب نمایید:</h4>
+          
+          <div class="space-y-3">
+            <label class="block p-4 rounded-2xl bg-bgCard border-2 border-emerald-500/80 cursor-pointer transition flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <input type="radio" name="selected_service" checked value="مشاوره استراتژی کسب‌وکار (۸۰۰,۰۰۰ ت)" class="accent-emerald-500 w-4 h-4">
+                <div>
+                  <h5 class="font-bold text-white text-xs">مشاوره استراتژی کسب‌وکار</h5>
+                  <p class="text-[11px] text-textSecondary mt-0.5">۴۵ دقیقه جلسه ویدئویی خصوصی</p>
+                </div>
+              </div>
+              <span class="text-xs font-extrabold text-emerald-400">۸۰۰,۰۰۰ تومان</span>
+            </label>
+
+            <label class="block p-4 rounded-2xl bg-bgCard border border-borderCustom hover:border-accentMuted cursor-pointer transition flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <input type="radio" name="selected_service" value="برنامه‌ریزی و تدوین رودمپ (۱,۲۰۰,۰۰۰ ت)" class="accent-emerald-500 w-4 h-4">
+                <div>
+                  <h5 class="font-bold text-white text-xs">برنامه‌ریزی و تدوین رودمپ</h5>
+                  <p class="text-[11px] text-textSecondary mt-0.5">۶۰ دقیقه جلسه تخصصی و خروجی مستند</p>
+                </div>
+              </div>
+              <span class="text-xs font-extrabold text-emerald-400">۱,۲۰۰,۰۰۰ تومان</span>
+            </label>
+
+            <label class="block p-4 rounded-2xl bg-bgCard border border-borderCustom hover:border-accentMuted cursor-pointer transition flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <input type="radio" name="selected_service" value="جلسه پیگیری و رفع اشکال (۵۰۰,۰۰۰ ت)" class="accent-emerald-500 w-4 h-4">
+                <div>
+                  <h5 class="font-bold text-white text-xs">جلسه پیگیری و رفع اشکال</h5>
+                  <p class="text-[11px] text-textSecondary mt-0.5">۳۰ دقیقه پیگیری اقدامات قبلی</p>
+                </div>
+              </div>
+              <span class="text-xs font-extrabold text-emerald-400">۵۰۰,۰۰۰ تومان</span>
+            </label>
+          </div>
+
+          <div class="flex justify-end pt-4">
+            <button onclick="goToBookingStep(2)" class="bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold px-6 py-2.5 rounded-xl text-xs transition shadow-md">
+              مرحله بعد: انتخاب تاریخ و ساعت ←
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 2: SELECT DATE & TIME -->
+        <div id="booking-step-2" class="p-6 hidden space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Jalali Calendar Preview -->
+            <div>
+              <h5 class="text-xs font-bold text-white mb-3">۱. انتخاب روز (آبان / آذر ۱۴۰۵)</h5>
+              <div class="bg-bgCard p-4 rounded-2xl border border-borderCustom">
+                <div class="flex items-center justify-between mb-3 text-xs font-bold text-white">
+                  <span>آبان ۱۴۰۵</span>
+                  <div class="flex gap-1 text-textMuted">
+                    <button class="hover:text-white px-1">›</button>
+                    <button class="hover:text-white px-1">‹</button>
+                  </div>
+                </div>
+                <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-textMuted mb-2">
+                  <span>ش</span><span>ی</span><span>د</span><span>س</span><span>چ</span><span>پ</span><span>ج</span>
+                </div>
+                <div class="grid grid-cols-7 gap-1 text-center text-xs">
+                  <span class="py-1.5 text-textMuted opacity-30">۲۱</span>
+                  <span class="py-1.5 text-textMuted opacity-30">۲۲</span>
+                  <span class="py-1.5 text-textMuted opacity-30">۲۳</span>
+                  <button class="py-1.5 rounded-lg text-textMuted hover:bg-bgSecondary">۲۴</button>
+                  <button class="py-1.5 rounded-lg text-textMuted hover:bg-bgSecondary">۲۵</button>
+                  <button class="py-1.5 rounded-lg bg-emerald-500 font-bold text-slate-900 shadow">۲۶</button>
+                  <button class="py-1.5 rounded-lg text-textSecondary hover:bg-bgSecondary">۲۷</button>
+                  <button class="py-1.5 rounded-lg text-textSecondary hover:bg-bgSecondary">۲۸</button>
+                  <button class="py-1.5 rounded-lg text-textSecondary hover:bg-bgSecondary">۲۹</button>
+                  <button class="py-1.5 rounded-lg text-textSecondary hover:bg-bgSecondary">۳۰</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Time Slots Selection -->
+            <div>
+              <h5 class="text-xs font-bold text-white mb-3">۲. ساعت‌های خالی برای دوشنبه ۲۶ آبان</h5>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <button onclick="selectTimeSlot(this, '۱۰:۰۰')" class="slot-btn p-2.5 rounded-xl bg-bgCard border-2 border-emerald-500 font-bold text-white text-center transition">
+                  ۱۰:۰۰ صبح
+                </button>
+                <button onclick="selectTimeSlot(this, '۱۱:۳۰')" class="slot-btn p-2.5 rounded-xl bg-bgCard border border-borderCustom hover:border-accentMuted text-textSecondary text-center transition">
+                  ۱۱:۳۰ صبح
+                </button>
+                <button onclick="selectTimeSlot(this, '۱۴:۰۰')" class="slot-btn p-2.5 rounded-xl bg-bgCard border border-borderCustom hover:border-accentMuted text-textSecondary text-center transition">
+                  ۱۴:۰۰ بعدازظهر
+                </button>
+                <!-- A slot simulating double-booking conflict -->
+                <button onclick="triggerConflictSimulation()" class="p-2.5 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-300 text-center transition flex flex-col items-center justify-center" title="تست خطای رزرو همزمان ۴۰۹">
+                  <span>۱۵:۳۰ (تست ۴۰۹)</span>
+                  <span class="text-[9px] text-rose-400">شبیه‌ساز تداخل</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-between pt-4 border-t border-borderCustom">
+            <button onclick="goToBookingStep(1)" class="text-textSecondary hover:text-white text-xs">← مرحله قبل</button>
+            <button onclick="goToBookingStep(3)" class="bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold px-6 py-2.5 rounded-xl text-xs transition shadow-md">
+              ادامه و ثبت مشخصات مراجع ←
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 3: CLIENT DETAILS & FINAL CONFIRMATION -->
+        <div id="booking-step-3" class="p-6 hidden space-y-5">
+          <div class="bg-bgCard p-4 rounded-2xl border border-borderCustom flex items-center justify-between text-xs">
+            <div>
+              <span class="text-textMuted block text-[11px]">جلسه انتخابی:</span>
+              <span class="font-bold text-white">مشاوره استراتژی کسب‌وکار</span>
+            </div>
+            <div>
+              <span class="text-textMuted block text-[11px]">زمان موعد:</span>
+              <span class="font-bold text-emerald-400" id="confirmed-time-preview">دوشنبه ۲۶ آبان - ساعت ۱۰:۰۰</span>
+            </div>
+            <div>
+              <span class="text-textMuted block text-[11px]">مبلغ قابل پرداخت:</span>
+              <span class="font-bold text-white">۸۰۰,۰۰۰ تومان</span>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-textSecondary mb-1">نام و نام خانوادگی شما</label>
+              <input type="text" id="client_name" value="فرهاد صادقی" required class="w-full bg-bgCard border border-borderCustom rounded-xl p-2.5 text-xs text-white">
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-textSecondary mb-1">ایمیل معتبر</label>
+                <input type="email" id="client_email" value="farhad@example.com" required class="w-full bg-bgCard border border-borderCustom rounded-xl p-2.5 text-xs text-white">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-textSecondary mb-1">شماره همراه</label>
+                <input type="tel" id="client_phone" value="۰۹۱۲۳۴۵۶۷۸۹" required class="w-full bg-bgCard border border-borderCustom rounded-xl p-2.5 text-xs text-white text-right">
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-textSecondary mb-1">موضوع اصلی یا سوالات مدنظر برای جلسه</label>
+              <textarea rows="2" class="w-full bg-bgCard border border-borderCustom rounded-xl p-2.5 text-xs text-white" placeholder="به طور مختصر بنویسید..."></textarea>
+            </div>
+          </div>
+
+          <div class="flex justify-between pt-4 border-t border-borderCustom">
+            <button onclick="goToBookingStep(2)" class="text-textSecondary hover:text-white text-xs">← تغییر زمان</button>
+            <button onclick="completeBookingSuccess()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold px-6 py-2.5 rounded-xl text-xs transition shadow-lg shadow-emerald-500/20">
+              تایید نهایی و پرداخت آزمایشی (۲۰۱ Created)
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 5. ADMIN DASHBOARD VIEW (BONUS REQUIREMENT) -->
+    <!-- ============================================================ -->
+    <section id="view-admin" class="view-container hidden flex-1 p-6 space-y-6">
+      <div class="flex items-center justify-between border-b border-borderCustom pb-4">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+            <span>پنل مدیریت سامانه SoloPortal (Admin Console)</span>
+          </h2>
+          <p class="text-xs text-textSecondary mt-0.5">پایش کلی کاربران، تراکنش‌ها، سرورها و رزروهای کل پلتفرم</p>
+        </div>
+        <button onclick="navigateTo('dashboard')" class="text-xs bg-bgCard hover:bg-bgCard/80 border border-borderCustom px-3 py-1.5 rounded-xl text-white">بازگشت به پنل فریلنسر</button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div class="bg-bgCard p-4 rounded-2xl border border-borderCustom">
+          <span class="text-xs text-textMuted">کل کاربران ثبت‌نامی</span>
+          <h3 class="text-2xl font-black text-white mt-1">۱,۲40</h3>
+        </div>
+        <div class="bg-bgCard p-4 rounded-2xl border border-borderCustom">
+          <span class="text-xs text-textMuted">رزروهای موفق سیستم</span>
+          <h3 class="text-2xl font-black text-emerald-400 mt-1">۸,۹۲۰</h3>
+        </div>
+        <div class="bg-bgCard p-4 rounded-2xl border border-borderCustom">
+          <span class="text-xs text-textMuted">خطاهای همزمانی ۴۰۹ (کنترل شده)</span>
+          <h3 class="text-2xl font-black text-amber-400 mt-1">۱۴۲</h3>
+        </div>
+        <div class="bg-bgCard p-4 rounded-2xl border border-borderCustom">
+          <span class="text-xs text-textMuted">وضعیت اتصال به دیتابیس</span>
+          <h3 class="text-2xl font-black text-emerald-400 mt-1">PostgreSQL 17 OK</h3>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================================ -->
+  <!-- MODALS & OVERLAYS -->
+  <!-- ============================================================ -->
+
+  <!-- SUCCESS CONFIRMATION MODAL -->
+  <div id="modal-success" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-bgSecondary border border-emerald-500/50 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl relative">
+      <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-3xl mx-auto mb-4">
+        ✓
+      </div>
+      <h3 class="text-lg font-bold text-white mb-2">رزرو شما با موفقیت ثبت شد!</h3>
+      <p class="text-xs text-textSecondary mb-6 leading-relaxed">
+        جلسه شما در تقویم فریلنسر ثبت گردید و لینک ورود به جلسه آنلاین به ایمیل شما ارسال شد.
+      </p>
+
+      <div class="bg-bgCard p-4 rounded-2xl border border-borderCustom text-right text-xs space-y-2 mb-6">
+        <div class="flex justify-between">
+          <span class="text-textMuted">کد رهگیری:</span>
+          <span class="font-mono text-emerald-400 font-bold">#SP-98241</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-textMuted">خدمت:</span>
+          <span class="text-white font-medium">مشاوره استراتژی کسب‌وکار</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-textMuted">زمان:</span>
+          <span class="text-white font-medium">دوشنبه ۲۶ آبان - ساعت ۱۰:۰۰</span>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <button onclick="closeModal('modal-success'); navigateTo('dashboard')" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold py-2.5 rounded-xl text-xs transition">
+          مشاهده در داشبورد
+        </button>
+        <button onclick="closeModal('modal-success'); navigateTo('landing')" class="flex-1 bg-bgCard hover:bg-bgCard/80 border border-borderCustom text-white py-2.5 rounded-xl text-xs transition">
+          صفحه اصلی
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFLICT 409 SIMULATION MODAL -->
+  <div id="modal-conflict" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-bgSecondary border border-rose-500/60 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl relative">
+      <div class="w-16 h-16 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center text-3xl mx-auto mb-4">
+        ✕
+      </div>
+      <div class="inline-block bg-rose-500/10 text-rose-400 border border-rose-500/30 px-3 py-1 rounded-full text-xs font-mono font-bold mb-3">
+        HTTP 409 CONFLICT
+      </div>
+      <h3 class="text-lg font-bold text-white mb-2">این بازه زمانی هم‌اکنون پر شده است!</h3>
+      <p class="text-xs text-textSecondary mb-6 leading-relaxed">
+        کاربر دیگری دقیقاً همزمان با شما این ساعت را رزرو و نهایی کرد. با توجه به کنترل همزمانی پایگاه داده، این بازه قفل شده است. لطفاً ساعت دیگری را انتخاب فرمایید.
+      </p>
+
+      <button onclick="closeModal('modal-conflict')" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-md">
+        بازگشت و انتخاب زمان دیگر
+      </button>
+    </div>
+  </div>
+
+  <!-- ADD SERVICE MODAL -->
+  <div id="modal-add-service" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-bgSecondary border border-borderCustom rounded-3xl p-6 max-w-md w-full text-right shadow-2xl">
+      <h3 class="text-base font-bold text-white mb-4">تعریف خدمت جدید</h3>
+      <form onsubmit="handleAddServiceSubmit(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-textSecondary mb-1">عنوان خدمت</label>
+          <input type="text" id="new-service-title" required placeholder="مثال: کوچینگ فردی" class="w-full bg-bgCard border border-borderCustom rounded-xl p-2.5 text-white">
+        </div>
+        <div>
+          <label class="block text-textSecondary mb-1">مدت زمان (دقیقه)</label>
+          <input type="number" id="new-service-duration" required value="45" class="w-full bg-bgCard border border-borderCustom rounded-xl p-2.5 text-white">
+        </div>
+        <div>
+          <label class="block text-textSecondary mb-1">تعرفه (تومان)</label>
+          <input type="number" id="new-service-price" required value="900000" class="w-full bg-bgCard border border-borderCustom rounded-xl p-2.5 text-white">
+        </div>
+        <div>
+          <label class="block text-textSecondary mb-1">توضیحات کوتاه</label>
+          <textarea id="new-service-desc" rows="2" class="w-full bg-bgCard border border-borderCustom rounded-xl p-2.5 text-white" placeholder="توضیحات درباره خروجی جلسه..."></textarea>
+        </div>
+        <div class="flex gap-2 pt-3">
+          <button type="submit" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold py-2.5 rounded-xl transition">
+            ثبت و ذخیره
+          </button>
+          <button type="button" onclick="closeModal('modal-add-service')" class="px-4 bg-bgCard hover:bg-bgCard/80 text-textSecondary py-2.5 rounded-xl transition">
+            انصراف
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- BOOKING DETAILS MODAL -->
+  <div id="modal-booking-detail" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-bgSecondary border border-borderCustom rounded-3xl p-6 max-w-md w-full text-right shadow-2xl">
+      <h3 class="text-base font-bold text-white mb-3">جزئیات رزرو</h3>
+      <div class="space-y-3 text-xs text-textSecondary mb-5">
+        <p><strong>نام مراجع:</strong> <span id="modal-det-client" class="text-white"></span></p>
+        <p><strong>خدمت انتخابی:</strong> <span id="modal-det-service" class="text-white"></span></p>
+        <p><strong>زمان جلسه:</strong> <span id="modal-det-time" class="text-white"></span></p>
+        <p><strong>وضعیت پرداخت:</strong> <span class="text-emerald-400 font-semibold">موفق (۸۰۰,۰۰۰ تومان)</span></p>
+      </div>
+      <button onclick="closeModal('modal-booking-detail')" class="w-full bg-accentPrimary hover:bg-accentPrimary/80 text-white font-bold py-2 rounded-xl text-xs transition">
+        بستن پنجره
+      </button>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed bottom-6 left-6 bg-accentPrimary text-white text-xs px-4 py-3 rounded-2xl shadow-2xl border border-borderCustom flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+    <span id="toast-message">پیام سیستم</span>
+  </div>
+
+  <!-- INTERACTIVE JAVASCRIPT CONTROLLER -->
+  <script>
+    let currentActiveView = 'landing';
+    let selectedSlotTime = '۱۰:۰۰';
+
+    function navigateTo(target, sub = null) {
+      // Hide all top views
+      const views = ['landing', 'auth', 'public-booking', 'admin'];
+      views.forEach(v => {
+        const el = document.getElementById('view-' + v);
+        if (el) el.classList.add('hidden');
+      });
+      document.getElementById('view-dashboard-shell').classList.add('hidden');
+
+      // Update Screen Selector Dropdown
+      const selector = document.getElementById('screen-selector');
+      if (selector) selector.value = target;
+
+      const label = document.getElementById('current-page-label');
+
+      if (['dashboard', 'bookings', 'services', 'availability', 'customers', 'settings'].includes(target)) {
+        document.getElementById('view-dashboard-shell').classList.remove('hidden');
+        switchDashboardSubView(target);
+        if (label) label.textContent = 'پنل فریلنسر (' + target + ')';
+      } else {
+        const targetEl = document.getElementById('view-' + target);
+        if (targetEl) targetEl.classList.remove('hidden');
+        if (label) label.textContent = target === 'landing' ? 'صفحه اصلی (Landing)' :
+                                       target === 'auth' ? 'ورود و ثبت‌نام' :
+                                       target === 'public-booking' ? 'پورتال رزرو مشتری' : 'پنل ادمین';
+      }
+
+      if (target === 'auth' && sub === 'register') {
+        switchAuthTab('register');
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function switchDashboardSubView(subview) {
+      const subviews = ['dashboard', 'bookings', 'services', 'availability', 'customers', 'settings'];
+      subviews.forEach(sv => {
+        const el = document.getElementById('subview-' + sv);
+        if (el) el.classList.add('hidden');
+
+        const navBtn = document.getElementById('nav-' + (sv === 'dashboard' ? 'dash' : sv));
+        if (navBtn) {
+          navBtn.classList.remove('bg-accentPrimary', 'text-white', 'font-semibold');
+          navBtn.classList.add('text-textSecondary');
+        }
+      });
+
+      const currentSub = document.getElementById('subview-' + subview);
+      if (currentSub) currentSub.classList.remove('hidden');
+
+      const activeNav = document.getElementById('nav-' + (subview === 'dashboard' ? 'dash' : subview));
+      if (activeNav) {
+        activeNav.classList.add('bg-accentPrimary', 'text-white', 'font-semibold');
+        activeNav.classList.remove('text-textSecondary');
+      }
+
+      const titleEl = document.getElementById('dash-section-title');
+      const titles = {
+        'dashboard': 'نمای کلی و آمار عملکرد',
+        'bookings': 'مدیریت و پایش رزروها',
+        'services': 'تعریف و مدیریت خدمات',
+        'availability': 'تقویم و بازه‌های کاری آزاد',
+        'customers': 'فهرست مراجعان و تاریخچه',
+        'settings': 'تنظیمات پروفایل و عمومی'
+      };
+      if (titleEl && titles[subview]) titleEl.textContent = titles[subview];
+    }
+
+    function switchAuthTab(type) {
+      const loginForm = document.getElementById('form-login');
+      const registerForm = document.getElementById('form-register');
+      const tabLogin = document.getElementById('tab-login');
+      const tabRegister = document.getElementById('tab-register');
+      const title = document.getElementById('auth-title');
+
+      if (type === 'login') {
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+        tabLogin.classList.add('bg-accentPrimary', 'text-white', 'font-bold');
+        tabLogin.classList.remove('text-textMuted');
+        tabRegister.classList.remove('bg-accentPrimary', 'text-white', 'font-bold');
+        tabRegister.classList.add('text-textMuted');
+        title.textContent = 'ورود به حساب کاربری';
+      } else {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+        tabRegister.classList.add('bg-accentPrimary', 'text-white', 'font-bold');
+        tabRegister.classList.remove('text-textMuted');
+        tabLogin.classList.remove('bg-accentPrimary', 'text-white', 'font-bold');
+        tabLogin.classList.add('text-textMuted');
+        title.textContent = 'ایجاد حساب کاربری فریلنسر';
+      }
+    }
+
+    function handleAuthSubmit(e, type) {
+      e.preventDefault();
+      showToast(type === 'login' ? 'ورود موفقیت‌آمیز بود' : 'ثبت‌نام با موفقیت انجام شد');
+      setTimeout(() => {
+        navigateTo('dashboard');
+      }, 500);
+    }
+
+    function goToBookingStep(step) {
+      [1, 2, 3].forEach(s => {
+        const el = document.getElementById('booking-step-' + s);
+        const tab = document.getElementById('step-tab-' + s);
+        if (el) el.classList.add('hidden');
+        if (tab) {
+          tab.classList.remove('text-emerald-400');
+          tab.classList.add('text-textMuted');
+        }
+      });
+
+      document.getElementById('booking-step-' + step).classList.remove('hidden');
+      const curTab = document.getElementById('step-tab-' + step);
+      if (curTab) {
+        curTab.classList.add('text-emerald-400');
+        curTab.classList.remove('text-textMuted');
+      }
+    }
+
+    function selectTimeSlot(btn, time) {
+      document.querySelectorAll('.slot-btn').forEach(b => {
+        b.classList.remove('border-emerald-500', 'font-bold', 'text-white');
+        b.classList.add('border-borderCustom', 'text-textSecondary');
+      });
+      btn.classList.add('border-emerald-500', 'font-bold', 'text-white');
+      btn.classList.remove('border-borderCustom', 'text-textSecondary');
+      selectedSlotTime = time;
+      document.getElementById('confirmed-time-preview').textContent = 'دوشنبه ۲۶ آبان - ساعت ' + time;
+    }
+
+    function triggerConflictSimulation() {
+      document.getElementById('modal-conflict').classList.remove('hidden');
+    }
+
+    function completeBookingSuccess() {
+      document.getElementById('modal-success').classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function openAddServiceModal() {
+      document.getElementById('modal-add-service').classList.remove('hidden');
+    }
+
+    function handleAddServiceSubmit(e) {
+      e.preventDefault();
+      const title = document.getElementById('new-service-title').value;
+      const duration = document.getElementById('new-service-duration').value;
+      const price = Number(document.getElementById('new-service-price').value).toLocaleString();
+      const desc = document.getElementById('new-service-desc').value;
+
+      const grid = document.getElementById('services-grid');
+      const newCard = document.createElement('div');
+      newCard.className = 'bg-bgCard p-5 rounded-2xl border border-emerald-500/40 flex flex-col justify-between animate-fade-in';
+      newCard.innerHTML = `
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-semibold">تازه ایجادشده</span>
+            <span class="text-xs text-textMuted font-mono">${duration} دقیقه</span>
+          </div>
+          <h4 class="font-bold text-white text-sm">${title}</h4>
+          <p class="text-xs text-textSecondary mt-2 leading-relaxed">${desc}</p>
+        </div>
+        <div class="mt-6 pt-3 border-t border-borderCustom/40 flex items-center justify-between">
+          <span class="text-sm font-bold text-emerald-400">${price} تومان</span>
+          <button class="text-xs text-textMuted hover:text-white">ویرایش</button>
+        </div>
+      `;
+      grid.prepend(newCard);
+      closeModal('modal-add-service');
+      showToast('خدمت جدید با موفقیت اضافه شد');
+    }
+
+    function showBookingDetailModal(client, service, time) {
+      document.getElementById('modal-det-client').textContent = client;
+      document.getElementById('modal-det-service').textContent = service;
+      document.getElementById('modal-det-time').textContent = time;
+      document.getElementById('modal-booking-detail').classList.remove('hidden');
+    }
+
+    function cancelBookingMock(btn) {
+      if (confirm('آیا از لغو این جلسه رزرو شده اطمینان دارید؟ بازه زمانی آزاد خواهد شد.')) {
+        const row = btn.closest('tr');
+        row.querySelector('td:nth-child(5)').innerHTML = '<span class="bg-rose-500/10 text-rose-400 text-[10px] px-2 py-0.5 rounded-full">لغو شده</span>';
+        btn.parentElement.innerHTML = '<span class="text-textMuted text-xs">آزاد شد</span>';
+        showToast('جلسه لغو گردید و بازه زمانی آزاد شد');
+      }
+    }
+
+    function setViewport(mode) {
+      const frame = document.getElementById('viewport-frame');
+      const bDesktop = document.getElementById('btn-vp-desktop');
+      const bTablet = document.getElementById('btn-vp-tablet');
+      const bMobile = document.getElementById('btn-vp-mobile');
+
+      [bDesktop, bTablet, bMobile].forEach(b => {
+        b.classList.remove('bg-accentPrimary', 'text-white');
+        b.classList.add('text-textMuted');
+      });
+
+      if (mode === 'desktop') {
+        frame.style.maxWidth = '100%';
+        bDesktop.classList.add('bg-accentPrimary', 'text-white');
+        bDesktop.classList.remove('text-textMuted');
+      } else if (mode === 'tablet') {
+        frame.style.maxWidth = '768px';
+        bTablet.classList.add('bg-accentPrimary', 'text-white');
+        bTablet.classList.remove('text-textMuted');
+      } else if (mode === 'mobile') {
+        frame.style.maxWidth = '390px';
+        bMobile.classList.add('bg-accentPrimary', 'text-white');
+        bMobile.classList.remove('text-textMuted');
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-message').textContent = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
