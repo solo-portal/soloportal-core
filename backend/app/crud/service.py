@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.service import Service
-from app.schemas.service import ServiceCreate
+from app.schemas.service import ServiceCreate, ServiceUpdate
 
 
 def create_user_service(db: Session, user_id: int, service_in: ServiceCreate) -> Service:
@@ -26,3 +26,20 @@ def get_services_by_user_id(db: Session, user_id: int, only_active: bool = True)
         stmt = stmt.where(Service.is_active == True)
     stmt = stmt.order_by(Service.id.asc())
     return list(db.scalars(stmt).all())
+
+
+def update_service(db: Session, service: Service, service_in: ServiceUpdate) -> Service:
+    update_data = service_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        if field == "title" and isinstance(value, str):
+            value = value.strip()
+        setattr(service, field, value)
+    db.add(service)
+    db.commit()
+    db.refresh(service)
+    return service
+
+
+def delete_service(db: Session, service: Service) -> None:
+    db.delete(service)
+    db.commit()
