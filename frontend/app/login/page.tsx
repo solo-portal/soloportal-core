@@ -55,7 +55,13 @@ export default function LoginPage() {
       })
     );
 
-    router.push("/dashboard");
+    const params = new URLSearchParams(window.location.search);
+    const redirectTo = params.get("redirect");
+    if (redirectTo && redirectTo.startsWith("/")) {
+      router.push(redirectTo);
+    } else {
+      router.push("/dashboard");
+    }
   };
 
   if (!isMounted) {

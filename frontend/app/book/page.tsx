@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useLayoutEffect } from "react";
+import { useRouter } from "next/navigation";
 
 interface ServiceOption {
   id: string;
@@ -52,8 +53,11 @@ const AVAILABLE_SLOTS = [
 ];
 
 export default function BookingWizardPage() {
+  const router = useRouter();
   const [isDark, setIsDark] = useState<boolean>(true);
   const [isMounted, setIsMounted] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
 
   // مراحل ویزارد: 1 = انتخاب خدمت | 2 = انتخاب زمان | 3 = مشخصات و تایید
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -62,7 +66,7 @@ export default function BookingWizardPage() {
   const [selectedDayId, setSelectedDayId] = useState<string>("sat");
   const [selectedTime, setSelectedTime] = useState<string>("۱۰:۳۰");
 
-  // فیلدهای رزرو مهمان مطابق قرارداد بک‌اند
+  // فیلدهای رزرو مطابق قرارداد بک‌اند
   const [clientName, setClientName] = useState<string>("");
   const [clientEmail, setClientEmail] = useState<string>("");
   const [clientPhone, setClientPhone] = useState<string>("");
@@ -75,6 +79,22 @@ export default function BookingWizardPage() {
     if (savedTheme !== null) {
       setIsDark(savedTheme === "dark");
     }
+
+    const token = localStorage.getItem("soloportal_token");
+    const demoUserRaw = localStorage.getItem("soloportal_demo_user");
+    if (token || demoUserRaw) {
+      setIsAuthenticated(true);
+      if (demoUserRaw) {
+        try {
+          const demoUser = JSON.parse(demoUserRaw);
+          if (demoUser.fullName) setClientName(demoUser.fullName);
+          if (demoUser.email) setClientEmail(demoUser.email);
+        } catch {
+          // ignore invalid JSON
+        }
+      }
+    }
+
     setIsMounted(true);
   }, []);
 
@@ -92,6 +112,17 @@ export default function BookingWizardPage() {
   const handleConfirmBooking = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
+
+    // بررسی احراز هویت کاربر پیش از نهایی‌سازی رزرو
+    const hasAuth =
+      isAuthenticated ||
+      Boolean(localStorage.getItem("soloportal_token")) ||
+      Boolean(localStorage.getItem("soloportal_demo_user"));
+
+    if (!hasAuth) {
+      setShowAuthModal(true);
+      return;
+    }
 
     if (!clientName.trim() || !clientEmail.trim() || !clientPhone.trim()) {
       setFormError("لطفاً نام و نام خانوادگی، ایمیل و شماره موبایل خود را وارد کنید.");
@@ -648,6 +679,59 @@ export default function BookingWizardPage() {
           )}
         </div>
       </main>
+
+      {/* مودال الزام به احراز هویت برای رزرو وقت */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
+          <div
+            className={
+              isDark
+                ? "w-full max-w-md rounded-3xl border border-white/15 bg-[#04222B] p-6 sm:p-7 shadow-2xl text-center space-y-5"
+                : "w-full max-w-md rounded-3xl border border-[#98D8D0]/60 bg-white p-6 sm:p-7 shadow-2xl text-center space-y-5"
+            }
+          >
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-400/30 text-amber-400 flex items-center justify-center mx-auto">
+              <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
+              </svg>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className={isDark ? "text-lg font-extrabold text-white" : "text-lg font-extrabold text-[#04222B]"}>
+                برای رزرو نوبت باید احراز هویت شوید
+              </h3>
+              <p className={isDark ? "text-xs leading-relaxed text-[#98D8D0]" : "text-xs leading-relaxed text-[#0A3D4A]/80"}>
+                جهت ثبت نهایی زمان جلسه و پیگیری نوبت‌ها، ابتدا باید وارد حساب کاربری خود شوید یا ثبت‌نام کنید.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => router.push("/login?redirect=/book")}
+                className="flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold bg-[#1D8B94] hover:bg-[#4FB8B4] text-white shadow-lg cursor-pointer transition"
+              >
+                رفتن به صفحه ورود / ثبت‌نام
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(false)}
+                className={
+                  isDark
+                    ? "flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold bg-white/10 hover:bg-white/15 text-[#E2F4F0] cursor-pointer transition"
+                    : "flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold bg-[#E2F4F0] hover:bg-[#98D8D0]/40 text-[#04222B] cursor-pointer transition"
+                }
+              >
+                بازگشت به همین صفحه
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* فوتر ساده */}
       <footer className="py-5 text-center text-xs opacity-70 relative z-10">
