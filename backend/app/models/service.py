@@ -30,3 +30,8 @@ class Service(Base):
 
     # ارتباط دوطرفه با مدل User
     user: Mapped["User"] = relationship("User", back_populates="services")
+
+    # ارتباط با بازه‌های زمانی
+    time_slots: Mapped[list["TimeSlot"]] = relationship(
+        "TimeSlot", back_populates="service", cascade="all, delete-orphan"
+    )

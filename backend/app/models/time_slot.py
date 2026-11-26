@@ -10,6 +10,9 @@ class TimeSlot(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    service_id: Mapped[int] = mapped_column(
+        ForeignKey("services.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     start_time: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
     )
@@ -25,7 +28,10 @@ class TimeSlot(Base):
     # رابطه دوطرفه با مدل User
     user: Mapped["User"] = relationship("User", back_populates="time_slots")
 
-    # رابطه یک‌به‌یک با Booking
-    booking: Mapped["Booking | None"] = relationship(
-        "Booking", back_populates="slot", uselist=False, cascade="all, delete-orphan"
+    # رابطه با مدل Service
+    service: Mapped["Service"] = relationship("Service", back_populates="time_slots")
+
+    # رابطه یک‌به‌چند با Booking (یک رزرو فعال + تاریخچه رزروهای لغوشده)
+    bookings: Mapped[list["Booking"]] = relationship(
+        "Booking", back_populates="slot", cascade="all, delete-orphan"
     )
