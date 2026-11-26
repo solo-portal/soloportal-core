@@ -1,21 +1,35 @@
 "use client";
 
-import { useState, useLayoutEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useLayoutEffect, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { apiRequest } from "@/lib/api";
 
-export default function LoginPage() {
+interface TokenResponse {
+  access_token: string;
+  token_type: string;
+}
+
+interface UserProfile {
+  id: number;
+  email: string;
+  full_name: string;
+  slug: string;
+}
+
+function LoginFormContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [isDark, setIsDark] = useState<boolean>(true);
   const [isMounted, setIsMounted] = useState<boolean>(false);
 
-  // حالت تب: ثبت‌نام فریلنسر یا ورود
   const [mode, setMode] = useState<"register" | "login">("register");
-
   const [fullName, setFullName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [slug, setSlug] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useLayoutEffect(() => {
     const savedTheme = localStorage.getItem("soloportal_theme");
@@ -25,13 +39,22 @@ export default function LoginPage() {
     setIsMounted(true);
   }, []);
 
+  useEffect(() => {
+    const urlMode = searchParams.get("mode");
+    if (urlMode === "login") {
+      setMode("login");
+    } else if (urlMode === "register") {
+      setMode("register");
+    }
+  }, [searchParams]);
+
   const toggleTheme = () => {
     const newTheme = !isDark;
     setIsDark(newTheme);
     localStorage.setItem("soloportal_theme", newTheme ? "dark" : "light");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
 
@@ -45,22 +68,59 @@ export default function LoginPage() {
       return;
     }
 
-    // ذخیره موقت اطلاعات کاربر دمو تا مرحله اتصال به بک‌اند
-    localStorage.setItem(
-      "soloportal_demo_user",
-      JSON.stringify({
-        fullName: fullName.trim() || "شقایق خوبکار",
-        email: email.trim(),
-        slug: slug.trim() || "shaghayegh",
-      })
-    );
+    setIsLoading(true);
+    try {
+      // ۱. اگر در حالت ثبت‌نام هستیم، ابتدا کاربر را در بک‌اند می‌سازیم
+      if (mode === "register") {
+        await apiRequest("/users", {
+          method: "POST",
+          body: JSON.stringify({
+            email: email.trim(),
+            full_name: fullName.trim(),
+            slug: slug.trim(),
+            password: password,
+          }),
+        });
+      }
 
-    const params = new URLSearchParams(window.location.search);
-    const redirectTo = params.get("redirect");
-    if (redirectTo && redirectTo.startsWith("/")) {
-      router.push(redirectTo);
-    } else {
-      router.push("/dashboard");
+      // ۲. لاگین و دریافت توکن JWT
+      const tokenData = await apiRequest<TokenResponse>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password,
+        }),
+      });
+
+      localStorage.setItem("soloportal_token", tokenData.access_token);
+
+      // ۳. دریافت اطلاعات پروفایل کاربر لاگین‌شده از بک‌اند
+      const me = await apiRequest<UserProfile>("/auth/me", { method: "GET" }, true);
+      localStorage.setItem(
+        "soloportal_demo_user",
+        JSON.stringify({
+          id: me.id,
+          fullName: me.full_name,
+          email: me.email,
+          slug: me.slug,
+        })
+      );
+
+      // ۴. هدایت به مسیر redirect (در صورت وجود) یا داشبورد
+      const redirectPath = searchParams.get("redirect");
+      if (redirectPath && redirectPath.startsWith("/")) {
+        router.push(redirectPath);
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setErrorMsg(err.message);
+      } else {
+        setErrorMsg("خطا در احراز هویت. لطفاً اطلاعات را بررسی کنید.");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -77,7 +137,6 @@ export default function LoginPage() {
           : "min-h-screen bg-gradient-to-br from-[#E2F4F0] via-[#F2F8F6] to-[#98D8D0]/30 text-[#04222B] font-sans relative overflow-x-hidden flex flex-col justify-between"
       }
     >
-      {/* هاله‌های نوری پس‌زمینه */}
       <div
         className={
           isDark
@@ -87,7 +146,7 @@ export default function LoginPage() {
       ></div>
       <div className="absolute bottom-10 left-1/4 w-96 h-96 rounded-full blur-3xl pointer-events-none bg-[#4FB8B4]/15"></div>
 
-      {/* هدر ساده بالا */}
+      {/* هدر */}
       <header
         className={
           isDark
@@ -153,7 +212,7 @@ export default function LoginPage() {
         </div>
       </header>
 
-      {/* کارت مرکزی ورود و ثبت‌نام مطابق طرح فیگما */}
+      {/* کارت مرکزی ورود و ثبت‌نام */}
       <main className="max-w-md w-full mx-auto px-6 py-12 relative z-10">
         <div
           className={
@@ -162,22 +221,20 @@ export default function LoginPage() {
               : "border p-7 sm:p-8 rounded-3xl backdrop-blur-xl bg-white/90 border-white shadow-xl space-y-6"
           }
         >
-          {/* آیکون و عنوان بالای کارت */}
           <div className="text-center space-y-2">
             <div className="w-12 h-12 rounded-2xl bg-[#1D8B94] text-white font-bold text-xl flex items-center justify-center mx-auto shadow-md">
               س
             </div>
             <h1 className={isDark ? "text-xl font-extrabold text-white pt-1" : "text-xl font-extrabold text-[#04222B] pt-1"}>
-              {mode === "register" ? "ایجاد حساب کاربری فریلنسر" : "ورود به پنل فریلنسر"}
+              {mode === "register" ? "ایجاد حساب کاربری" : "ورود به حساب کاربری"}
             </h1>
             <p className={isDark ? "text-xs text-[#98D8D0]/85" : "text-xs text-[#0A3D4A]/80"}>
               {mode === "register"
-                ? "جهت دسترسی به پنل مدیریت جلسات ثبت‌نام کنید"
-                : "برای مدیریت خدمات و رزروهای خود وارد شوید"}
+                ? "برای استفاده از پورتال مدیریت جلسات یا رزرو نوبت ثبت‌نام کنید"
+                : "برای دسترسی به پنل یا تکمیل رزرو وارد حساب خود شوید"}
             </p>
           </div>
 
-          {/* سوئیچ جابه‌جایی بین ثبت‌نام فریلنسر و ورود */}
           <div
             className={
               isDark
@@ -199,7 +256,7 @@ export default function LoginPage() {
                   : "py-2 rounded-xl text-xs font-medium text-[#0A3D4A] hover:text-black cursor-pointer transition"
               }
             >
-              ثبت‌نام فریلنسر
+              ثبت‌نام
             </button>
             <button
               type="button"
@@ -219,7 +276,6 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* فرم ورودی‌ها */}
           <form onSubmit={handleSubmit} className="space-y-4 text-right">
             {mode === "register" && (
               <div>
@@ -272,7 +328,7 @@ export default function LoginPage() {
                   }
                 >
                   <span className={isDark ? "px-3 text-xs text-[#98D8D0]/70 bg-white/5 py-2.5 border-r border-white/10" : "px-3 text-xs text-[#1D8B94] bg-[#E2F4F0]/60 py-2.5 border-r border-[#98D8D0]/40"}>
-                    soloportal.ir/
+                    /book/
                   </span>
                   <input
                     type="text"
@@ -315,13 +371,17 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="w-full py-3 rounded-2xl font-bold text-sm bg-[#1D8B94] hover:bg-[#4FB8B4] text-white shadow-lg cursor-pointer transition mt-2"
+              disabled={isLoading}
+              className="w-full py-3 rounded-2xl font-bold text-sm bg-[#1D8B94] hover:bg-[#4FB8B4] disabled:opacity-60 text-white shadow-lg cursor-pointer transition mt-2"
             >
-              {mode === "register" ? "ثبت‌نام و ساخت پورتال" : "ورود به داشبورد"}
+              {isLoading
+                ? "در حال پردازش..."
+                : mode === "register"
+                ? "ثبت‌نام و ساخت پورتال"
+                : "ورود به حساب"}
             </button>
           </form>
 
-          {/* لینک ورود مستقیم به پورتال مهمان مطابق پایین کارت فیگما */}
           <div
             className={
               isDark
@@ -330,7 +390,7 @@ export default function LoginPage() {
             }
           >
             <a
-              href="/book"
+              href="/book/shaghayegh"
               className={
                 isDark
                   ? "text-xs text-[#98D8D0] hover:text-white underline underline-offset-4 transition"
@@ -343,10 +403,17 @@ export default function LoginPage() {
         </div>
       </main>
 
-      {/* فوتر ساده */}
       <footer className="py-5 text-center text-xs opacity-70 relative z-10">
         © ۱۴۰۵ سولوپورتال (SoloPortal)
       </footer>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#04222B]" />}>
+      <LoginFormContent />
+    </Suspense>
   );
 }

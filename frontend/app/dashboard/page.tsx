@@ -1,143 +1,162 @@
 "use client";
 
-import { useState, useLayoutEffect } from "react";
+import { useState, useLayoutEffect, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { apiRequest } from "@/lib/api";
 
 type DashboardTab = "overview" | "bookings" | "services" | "schedule";
 
+interface UserProfile {
+  id: number;
+  email: string;
+  full_name: string;
+  slug: string;
+}
+
+interface HostStats {
+  total_bookings: number;
+  upcoming_bookings: number;
+  total_revenue: number;
+  active_clients: number;
+}
+
 interface BookingItem {
-  id: string;
-  clientName: string;
-  clientEmail: string;
-  clientPhone: string;
-  serviceTitle: string;
-  dateTime: string;
-  price: string;
-  status: "confirmed" | "cancelled";
-  notes: string;
+  id: number;
+  client_name: string;
+  client_email: string;
+  client_phone: string;
+  service_id: number;
+  service_title?: string;
+  start_time: string;
+  end_time?: string;
+  price?: number;
+  status: "confirmed" | "cancelled" | string;
+  notes?: string;
 }
 
 interface DashboardService {
-  id: string;
+  id: number;
   title: string;
-  duration: string;
+  duration_minutes: number;
   description: string;
-  price: string;
+  price: number;
 }
 
-interface DaySchedule {
-  id: string;
-  dayName: string;
-  active: boolean;
-  startTime: string;
-  endTime: string;
+interface TimeSlotItem {
+  id: number;
+  service_id: number;
+  start_time: string;
+  end_time: string;
+  is_booked: boolean;
 }
-
-const INITIAL_BOOKINGS: BookingItem[] = [
-  {
-    id: "SP-101",
-    clientName: "سارا جلالی",
-    clientEmail: "sara.jalali@example.com",
-    clientPhone: "09123456789",
-    serviceTitle: "مشاوره استراتژی کسب‌وکار",
-    dateTime: "شنبه ۸ آذر - ۱۰:۳۰",
-    price: "۸۵۰,۰۰۰ تومان",
-    status: "confirmed",
-    notes: "بررسی مدل درآمدی استارتاپ و تعیین اهداف سه ماهه اول",
-  },
-  {
-    id: "SP-102",
-    clientName: "مهدی رضایی",
-    clientEmail: "mahdi.rezaei@example.com",
-    clientPhone: "09351112233",
-    serviceTitle: "برنامه‌ریزی و تدوین رودمپ",
-    dateTime: "یکشنبه ۹ آذر - ۱۵:۰۰",
-    price: "۱,۲۰۰,۰۰۰ تومان",
-    status: "confirmed",
-    notes: "اولویت‌بندی تسک‌های فنی و مارکتینگ",
-  },
-  {
-    id: "SP-103",
-    clientName: "علی کاظمی",
-    clientEmail: "ali.kazemi@example.com",
-    clientPhone: "09198887766",
-    serviceTitle: "جلسه پیگیری و رفع اشکال",
-    dateTime: "دوشنبه ۱۰ آذر - ۱۲:۰۰",
-    price: "۴۵۰,۰۰۰ تومان",
-    status: "cancelled",
-    notes: "کنسل شده توسط مراجع به دلیل تداخل کاری",
-  },
-  {
-    id: "SP-104",
-    clientName: "نگین فرهادی",
-    clientEmail: "negin.f@example.com",
-    clientPhone: "09129994455",
-    serviceTitle: "مشاوره استراتژی کسب‌وکار",
-    dateTime: "سه‌شنبه ۱۱ آذر - ۱۶:۳۰",
-    price: "۸۵۰,۰۰۰ تومان",
-    status: "confirmed",
-    notes: "مشاوره راه‌اندازی کمپین فروش",
-  },
-];
-
-const INITIAL_SERVICES: DashboardService[] = [
-  {
-    id: "srv-1",
-    title: "مشاوره استراتژی کسب‌وکار",
-    duration: "۶۰ دقیقه",
-    description: "بررسی مدل درآمدی، تحلیل بازار و تدوین نقشه راه اجرایی",
-    price: "۸۵۰,۰۰۰ تومان",
-  },
-  {
-    id: "srv-2",
-    title: "برنامه‌ریزی و تدوین رودمپ",
-    duration: "۹۰ دقیقه",
-    description: "جلسه تخصصی عمیق برای اولویت‌بندی اهداف فصلی و عملیاتی",
-    price: "۱,۲۰۰,۰۰۰ تومان",
-  },
-  {
-    id: "srv-3",
-    title: "جلسه پیگیری و رفع اشکال",
-    duration: "۳۰ دقیقه",
-    description: "بررسی سریع وضعیت پیشرفت کارها و پاسخ به سوالات کلیدی",
-    price: "۴۵۰,۰۰۰ تومان",
-  },
-];
-
-const INITIAL_SCHEDULE: DaySchedule[] = [
-  { id: "sat", dayName: "شنبه", active: true, startTime: "09:00", endTime: "17:00" },
-  { id: "sun", dayName: "یکشنبه", active: true, startTime: "09:00", endTime: "17:00" },
-  { id: "mon", dayName: "دوشنبه", active: true, startTime: "10:00", endTime: "18:00" },
-  { id: "tue", dayName: "سه‌شنبه", active: true, startTime: "09:00", endTime: "16:00" },
-  { id: "wed", dayName: "چهارشنبه", active: true, startTime: "09:00", endTime: "15:00" },
-  { id: "thu", dayName: "پنج‌شنبه", active: false, startTime: "10:00", endTime: "14:00" },
-  { id: "fri", dayName: "جمعه (تعطیل)", active: false, startTime: "10:00", endTime: "14:00" },
-];
 
 export default function FreelancerDashboardPage() {
+  const router = useRouter();
   const [isDark, setIsDark] = useState<boolean>(true);
   const [isMounted, setIsMounted] = useState<boolean>(false);
 
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
-  const [userName, setUserName] = useState<string>("شقایق خوبکار");
-  const [userSlug, setUserSlug] = useState<string>("shaghayegh");
+  const [userName, setUserName] = useState<string>("");
+  const [userSlug, setUserSlug] = useState<string>("");
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
+  const [apiError, setApiError] = useState<string>("");
+
+  // آمار
+  const [stats, setStats] = useState<HostStats>({
+    total_bookings: 0,
+    upcoming_bookings: 0,
+    total_revenue: 0,
+    active_clients: 0,
+  });
 
   // وضعیت‌های مدیریت رزروها
-  const [bookings, setBookings] = useState<BookingItem[]>(INITIAL_BOOKINGS);
+  const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [bookingFilter, setBookingFilter] = useState<"all" | "confirmed" | "cancelled">("all");
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
 
   // وضعیت‌های مدیریت خدمات
-  const [services, setServices] = useState<DashboardService[]>(INITIAL_SERVICES);
-  const [showAddServiceForm, setShowAddServiceForm] = useState<boolean>(false);
-  const [newServiceTitle, setNewServiceTitle] = useState<string>("");
-  const [newServiceDuration, setNewServiceDuration] = useState<string>("۴۵ دقیقه");
-  const [newServicePrice, setNewServicePrice] = useState<string>("");
-  const [newServiceDesc, setNewServiceDesc] = useState<string>("");
+  const [services, setServices] = useState<DashboardService[]>([]);
+  const [showServiceForm, setShowServiceForm] = useState<boolean>(false);
+  const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
+  const [serviceTitle, setServiceTitle] = useState<string>("");
+  const [serviceDuration, setServiceDuration] = useState<number>(60);
+  const [servicePrice, setServicePrice] = useState<string>("");
+  const [serviceDesc, setServiceDesc] = useState<string>("");
+  const [isSavingService, setIsSavingService] = useState<boolean>(false);
 
-  // وضعیت‌های تقویم کاری
-  const [schedule, setSchedule] = useState<DaySchedule[]>(INITIAL_SCHEDULE);
-  const [scheduleSaved, setScheduleSaved] = useState<boolean>(false);
+  // وضعیت‌های مدیریت اسلات‌ها (متصل به سرویس)
+  const [selectedSlotServiceId, setSelectedSlotServiceId] = useState<number | "">("");
+  const [slotDate, setSlotDate] = useState<string>("");
+  const [slotStartTime, setSlotStartTime] = useState<string>("10:00");
+  const [slotEndTime, setSlotEndTime] = useState<string>("11:00");
+  const [slots, setSlots] = useState<TimeSlotItem[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState<boolean>(false);
+  const [isCreatingSlot, setIsCreatingSlot] = useState<boolean>(false);
+  const [slotMessage, setSlotMessage] = useState<string>("");
+
+  const formatPersianNumber = (num: number) =>
+    num.toLocaleString("fa-IR");
+
+  const formatDateTime = (isoString: string) => {
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleString("fa-IR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return isoString;
+    }
+  };
+
+  const loadDashboardData = useCallback(async () => {
+    try {
+      setApiError("");
+      // ۱. بررسی توکن و دریافت پروفایل واقعی فریلنسر
+      const me = await apiRequest<UserProfile>("/auth/me", { method: "GET" }, true);
+      setUserName(me.full_name);
+      setUserSlug(me.slug);
+      localStorage.setItem(
+        "soloportal_demo_user",
+        JSON.stringify({
+          id: me.id,
+          fullName: me.full_name,
+          email: me.email,
+          slug: me.slug,
+        })
+      );
+
+      // ۲. دریافت هم‌زمان آمار، رزروها و خدمات از بک‌اند
+      const [statsRes, bookingsRes, servicesRes] = await Promise.all([
+        apiRequest<HostStats>("/bookings/host/stats", { method: "GET" }, true).catch(() => ({
+          total_bookings: 0,
+          upcoming_bookings: 0,
+          total_revenue: 0,
+          active_clients: 0,
+        })),
+        apiRequest<BookingItem[]>("/bookings/host", { method: "GET" }, true).catch(() => []),
+        apiRequest<DashboardService[]>(`/users/${me.slug}/services`, { method: "GET" }, true).catch(
+          () => []
+        ),
+      ]);
+
+      setStats(statsRes);
+      setBookings(Array.isArray(bookingsRes) ? bookingsRes : []);
+      const validServices = Array.isArray(servicesRes) ? servicesRes : [];
+      setServices(validServices);
+
+      if (validServices.length > 0) {
+        setSelectedSlotServiceId((prev) => (prev === "" ? validServices[0].id : prev));
+      }
+    } catch {
+      localStorage.removeItem("soloportal_token");
+      localStorage.removeItem("soloportal_demo_user");
+      router.replace("/login?redirect=/dashboard");
+    }
+  }, [router]);
 
   useLayoutEffect(() => {
     const savedTheme = localStorage.getItem("soloportal_theme");
@@ -145,19 +164,69 @@ export default function FreelancerDashboardPage() {
       setIsDark(savedTheme === "dark");
     }
 
-    const savedUser = localStorage.getItem("soloportal_demo_user");
-    if (savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        if (parsed.fullName) setUserName(parsed.fullName);
-        if (parsed.slug) setUserSlug(parsed.slug);
-      } catch {
-        // نادیده گرفتن خطای احتمالی JSON
-      }
+    const token = localStorage.getItem("soloportal_token");
+    if (!token) {
+      router.replace("/login?redirect=/dashboard");
+      return;
     }
 
+    // مقدار پیش‌فرض تاریخ امروز برای فرم اسلات
+    const today = new Date().toISOString().split("T")[0];
+    setSlotDate(today);
+
     setIsMounted(true);
-  }, []);
+    loadDashboardData();
+  }, [router, loadDashboardData]);
+
+  // محاسبه خودکار ساعت پایان بر اساس مدت سرویس انتخاب‌شده
+  useEffect(() => {
+    if (!selectedSlotServiceId || !slotStartTime) return;
+    const srv = services.find((s) => s.id === Number(selectedSlotServiceId));
+    if (!srv) return;
+
+    const [hours, minutes] = slotStartTime.split(":").map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return;
+
+    const totalMinutes = hours * 60 + minutes + (srv.duration_minutes || 60);
+    const endH = Math.floor((totalMinutes % (24 * 60)) / 60)
+      .toString()
+      .padStart(2, "0");
+    const endM = (totalMinutes % 60).toString().padStart(2, "0");
+    setSlotEndTime(`${endH}:${endM}`);
+  }, [selectedSlotServiceId, slotStartTime, services]);
+
+  // دریافت اسلات‌های سرویس انتخاب‌شده
+  const fetchSlotsForService = useCallback(async () => {
+    if (!userSlug || !selectedSlotServiceId) {
+      setSlots([]);
+      return;
+    }
+    setIsLoadingSlots(true);
+    try {
+      const data = await apiRequest<TimeSlotItem[]>(
+        `/users/${userSlug}/slots?service_id=${selectedSlotServiceId}`,
+        { method: "GET" },
+        true
+      );
+      setSlots(Array.isArray(data) ? data : []);
+    } catch {
+      setSlots([]);
+    } finally {
+      setIsLoadingSlots(false);
+    }
+  }, [userSlug, selectedSlotServiceId]);
+
+  useEffect(() => {
+    if (activeTab === "schedule" && selectedSlotServiceId) {
+      fetchSlotsForService();
+    }
+  }, [activeTab, selectedSlotServiceId, fetchSlotsForService]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("soloportal_token");
+    localStorage.removeItem("soloportal_demo_user");
+    router.push("/login");
+  };
 
   const toggleTheme = () => {
     const newTheme = !isDark;
@@ -166,67 +235,174 @@ export default function FreelancerDashboardPage() {
   };
 
   const handleCopyPortalLink = () => {
-    const link = `https://soloportal.ir/${userSlug}`;
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(link);
-    }
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2500);
-  };
-
-  const handleToggleBookingStatus = (id: string) => {
-    setBookings((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              status: item.status === "confirmed" ? "cancelled" : "confirmed",
-            }
-          : item
-      )
-    );
-    if (selectedBooking && selectedBooking.id === id) {
-      setSelectedBooking({
-        ...selectedBooking,
-        status: selectedBooking.status === "confirmed" ? "cancelled" : "confirmed",
-      });
+    if (typeof window !== "undefined") {
+      const link = `${window.location.origin}/book/${userSlug}`;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(link);
+      }
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
     }
   };
 
-  const handleAddService = (e: React.FormEvent) => {
+  const handleCancelBooking = async (bookingId: number) => {
+    try {
+      await apiRequest(`/bookings/${bookingId}`, { method: "DELETE" }, true);
+      setBookings((prev) =>
+        prev.map((item) => (item.id === bookingId ? { ...item, status: "cancelled" } : item))
+      );
+      if (selectedBooking && selectedBooking.id === bookingId) {
+        setSelectedBooking({ ...selectedBooking, status: "cancelled" });
+      }
+      // به‌روزرسانی آمار
+      const updatedStats = await apiRequest<HostStats>(
+        "/bookings/host/stats",
+        { method: "GET" },
+        true
+      ).catch(() => stats);
+      setStats(updatedStats);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "خطا در لغو نوبت");
+    }
+  };
+
+  const openCreateServiceForm = () => {
+    setEditingServiceId(null);
+    setServiceTitle("");
+    setServiceDuration(60);
+    setServicePrice("");
+    setServiceDesc("");
+    setShowServiceForm(true);
+  };
+
+  const openEditServiceForm = (srv: DashboardService) => {
+    setEditingServiceId(srv.id);
+    setServiceTitle(srv.title);
+    setServiceDuration(srv.duration_minutes);
+    setServicePrice(String(srv.price));
+    setServiceDesc(srv.description || "");
+    setShowServiceForm(true);
+  };
+
+  const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newServiceTitle.trim() || !newServicePrice.trim()) return;
+    if (!serviceTitle.trim() || !servicePrice.trim() || !userSlug) return;
 
-    const created: DashboardService = {
-      id: `srv-${Date.now()}`,
-      title: newServiceTitle.trim(),
-      duration: newServiceDuration,
-      description: newServiceDesc.trim() || "جلسه مشاوره تخصصی آنلاین",
-      price: newServicePrice.includes("تومان")
-        ? newServicePrice.trim()
-        : `${newServicePrice.trim()} تومان`,
-    };
+    const numericPrice = Number(String(servicePrice).replace(/[^\d]/g, ""));
+    if (isNaN(numericPrice) || numericPrice <= 0) {
+      setApiError("لطفاً مبلغ معتبر (به عدد) وارد کنید.");
+      return;
+    }
 
-    setServices([created, ...services]);
-    setNewServiceTitle("");
-    setNewServicePrice("");
-    setNewServiceDesc("");
-    setShowAddServiceForm(false);
+    setIsSavingService(true);
+    setApiError("");
+    try {
+      const payload = {
+        title: serviceTitle.trim(),
+        duration_minutes: Number(serviceDuration),
+        price: numericPrice,
+        description: serviceDesc.trim() || "جلسه مشاوره تخصصی آنلاین",
+      };
+
+      if (editingServiceId !== null) {
+        const updated = await apiRequest<DashboardService>(
+          `/users/${userSlug}/services/${editingServiceId}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          },
+          true
+        );
+        setServices((prev) => prev.map((s) => (s.id === editingServiceId ? updated : s)));
+      } else {
+        const created = await apiRequest<DashboardService>(
+          `/users/${userSlug}/services`,
+          {
+            method: "POST",
+            body: JSON.stringify(payload),
+          },
+          true
+        );
+        setServices((prev) => [created, ...prev]);
+        if (selectedSlotServiceId === "") {
+          setSelectedSlotServiceId(created.id);
+        }
+      }
+
+      setShowServiceForm(false);
+      setEditingServiceId(null);
+      setServiceTitle("");
+      setServicePrice("");
+      setServiceDesc("");
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : "خطا در ذخیره خدمت");
+    } finally {
+      setIsSavingService(false);
+    }
   };
 
-  const handleDeleteService = (id: string) => {
-    setServices((prev) => prev.filter((s) => s.id !== id));
+  const handleDeleteService = async (serviceId: number) => {
+    if (!userSlug) return;
+    try {
+      await apiRequest(`/users/${userSlug}/services/${serviceId}`, { method: "DELETE" }, true);
+      const remaining = services.filter((s) => s.id !== serviceId);
+      setServices(remaining);
+      if (selectedSlotServiceId === serviceId) {
+        setSelectedSlotServiceId(remaining.length > 0 ? remaining[0].id : "");
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "خطا در حذف خدمت");
+    }
   };
 
-  const handleScheduleChange = (
-    id: string,
-    field: "active" | "startTime" | "endTime",
-    value: boolean | string
-  ) => {
-    setScheduleSaved(false);
-    setSchedule((prev) =>
-      prev.map((day) => (day.id === id ? { ...day, [field]: value } : day))
-    );
+  const handleCreateSlot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userSlug || !selectedSlotServiceId || !slotDate || !slotStartTime || !slotEndTime) return;
+
+    setIsCreatingSlot(true);
+    setSlotMessage("");
+    setApiError("");
+
+    try {
+      const startIso = `${slotDate}T${slotStartTime}:00`;
+      const endIso = `${slotDate}T${slotEndTime}:00`;
+
+      await apiRequest(
+        `/users/${userSlug}/slots`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            service_id: Number(selectedSlotServiceId),
+            start_time: startIso,
+            end_time: endIso,
+          }),
+        },
+        true
+      );
+
+      setSlotMessage("✓ بازه زمانی آزاد با موفقیت اضافه شد.");
+      await fetchSlotsForService();
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : "خطا در ایجاد بازه زمانی");
+    } finally {
+      setIsCreatingSlot(false);
+    }
+  };
+
+  const handleDeleteSlot = async (slotId: number) => {
+    if (!userSlug) return;
+    try {
+      await apiRequest(`/users/${userSlug}/slots/${slotId}`, { method: "DELETE" }, true);
+      setSlots((prev) => prev.filter((s) => s.id !== slotId));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "امکان حذف این اسلات وجود ندارد.");
+    }
+  };
+
+  const getServiceTitleById = (serviceId: number, fallback?: string) => {
+    if (fallback) return fallback;
+    const found = services.find((s) => s.id === serviceId);
+    return found ? found.title : `سرویس #${serviceId}`;
   };
 
   const filteredBookings = bookings.filter((b) => {
@@ -304,7 +480,7 @@ export default function FreelancerDashboardPage() {
             </button>
 
             <a
-              href="/book"
+              href={`/book/${userSlug}`}
               className="text-xs font-bold px-4 py-2 rounded-xl bg-[#1D8B94] hover:bg-[#4FB8B4] text-white shadow-sm transition"
             >
               مشاهده صفحه رزرو
@@ -331,23 +507,24 @@ export default function FreelancerDashboardPage() {
               )}
             </button>
 
-            <a
-              href="/login"
+            <button
+              type="button"
+              onClick={handleLogout}
               className={
                 isDark
-                  ? "text-xs px-3 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/20 transition"
-                  : "text-xs px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/20 transition"
+                  ? "text-xs px-3 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/20 cursor-pointer transition"
+                  : "text-xs px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/20 cursor-pointer transition"
               }
             >
               خروج
-            </a>
+            </button>
           </div>
         </div>
       </header>
 
-      {/* بدنه اصلی داشبورد: سایدبار راست + محتوای اصلی چپ */}
+      {/* بدنه اصلی داشبورد */}
       <div className="max-w-7xl w-full mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 relative z-10">
-        {/* سایدبار راست مطابق عکس‌های فیگما */}
+        {/* سایدبار راست */}
         <aside className="lg:col-span-3 space-y-4">
           <div
             className={
@@ -356,7 +533,6 @@ export default function FreelancerDashboardPage() {
                 : "p-5 rounded-3xl border backdrop-blur-xl bg-white/90 border-white space-y-5 shadow-md"
             }
           >
-            {/* پروفایل فریلنسر در بالای سایدبار */}
             <div
               className={
                 isDark
@@ -365,19 +541,18 @@ export default function FreelancerDashboardPage() {
               }
             >
               <div className="w-11 h-11 rounded-2xl bg-[#1D8B94] text-white font-bold flex items-center justify-center shrink-0">
-                {userName.charAt(0)}
+                {userName ? userName.charAt(0) : "س"}
               </div>
               <div className="text-right overflow-hidden">
                 <div className={isDark ? "font-bold text-sm text-white truncate" : "font-bold text-sm text-[#04222B] truncate"}>
-                  {userName}
+                  {userName || "در حال بارگذاری..."}
                 </div>
                 <div dir="ltr" className={isDark ? "text-[11px] text-[#98D8D0] truncate text-right" : "text-[11px] text-[#1D8B94] truncate text-right"}>
-                  soloportal.ir/{userSlug}
+                  /book/{userSlug}
                 </div>
               </div>
             </div>
 
-            {/* دکمه‌های منوی سایدبار */}
             <nav className="space-y-1.5 text-right">
               <button
                 type="button"
@@ -410,7 +585,7 @@ export default function FreelancerDashboardPage() {
                   <span>مدیریت رزروها</span>
                 </span>
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/20">
-                  {bookings.length}
+                  {formatPersianNumber(bookings.length)}
                 </span>
               </button>
 
@@ -445,7 +620,6 @@ export default function FreelancerDashboardPage() {
               </button>
             </nav>
 
-            {/* باکس وضعیت پورتال در پایین سایدبار */}
             <div
               className={
                 isDark
@@ -458,7 +632,7 @@ export default function FreelancerDashboardPage() {
                 <span className="text-emerald-400 font-bold">● فعال</span>
               </div>
               <a
-                href="/book"
+                href={`/book/${userSlug}`}
                 className="block text-center w-full py-2 rounded-xl text-xs font-bold bg-[#1D8B94]/20 hover:bg-[#1D8B94] text-[#98D8D0] hover:text-white border border-[#4FB8B4]/30 transition"
               >
                 مشاهده صفحه رزرو من
@@ -467,8 +641,14 @@ export default function FreelancerDashboardPage() {
           </div>
         </aside>
 
-        {/* محتوای اصلی سمت چپ بر اساس تب انتخاب‌شده */}
+        {/* محتوای اصلی سمت چپ */}
         <main className="lg:col-span-9 space-y-6">
+          {apiError && (
+            <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs text-right">
+              {apiError}
+            </div>
+          )}
+
           {/* تب ۱: نمای کلی و آمار عملکرد */}
           {activeTab === "overview" && (
             <div className="space-y-6">
@@ -477,11 +657,10 @@ export default function FreelancerDashboardPage() {
                   نمای کلی و آمار عملکرد
                 </h1>
                 <p className={isDark ? "text-xs text-[#98D8D0]/80 mt-1" : "text-xs text-[#0A3D4A]/80 mt-1"}>
-                  خلاصه وضعیت جلسات، درآمد و مراجعان این ماه شما
+                  خلاصه وضعیت جلسات، درآمد و مراجعان شما
                 </p>
               </div>
 
-              {/* ۴ کارت آمار بالا مطابق عکس هفتم فیگما */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div
                   className={
@@ -492,9 +671,9 @@ export default function FreelancerDashboardPage() {
                 >
                   <span className="text-xs opacity-75">مجموع رزروها</span>
                   <div className={isDark ? "text-2xl font-extrabold text-white" : "text-2xl font-extrabold text-[#04222B]"}>
-                    ۴۸ جلسه
+                    {formatPersianNumber(stats.total_bookings || bookings.length)} جلسه
                   </div>
-                  <span className="text-[11px] text-emerald-400 block">+۱۲٪ نسبت به ماه قبل</span>
+                  <span className="text-[11px] text-emerald-400 block">ثبت‌شده در سیستم</span>
                 </div>
 
                 <div
@@ -506,9 +685,9 @@ export default function FreelancerDashboardPage() {
                 >
                   <span className="text-xs opacity-75">جلسات پیش‌رو</span>
                   <div className={isDark ? "text-2xl font-extrabold text-[#98D8D0]" : "text-2xl font-extrabold text-[#1D8B94]"}>
-                    {confirmedCount} جلسه
+                    {formatPersianNumber(stats.upcoming_bookings || confirmedCount)} جلسه
                   </div>
-                  <span className="text-[11px] opacity-70 block">برنامه‌ریزی شده برای این هفته</span>
+                  <span className="text-[11px] opacity-70 block">تایید شده و فعال</span>
                 </div>
 
                 <div
@@ -518,11 +697,11 @@ export default function FreelancerDashboardPage() {
                       : "p-5 rounded-3xl border bg-white/90 border-white text-right space-y-2 shadow-md"
                   }
                 >
-                  <span className="text-xs opacity-75">درآمد ماه جاری</span>
+                  <span className="text-xs opacity-75">درآمد کل</span>
                   <div className={isDark ? "text-2xl font-extrabold text-white" : "text-2xl font-extrabold text-[#04222B]"}>
-                    ۱۸.۴ م
+                    {formatPersianNumber(stats.total_revenue || 0)}
                   </div>
-                  <span className="text-[11px] text-emerald-400 block">تومان (تسویه شده)</span>
+                  <span className="text-[11px] text-emerald-400 block">تومان</span>
                 </div>
 
                 <div
@@ -534,13 +713,12 @@ export default function FreelancerDashboardPage() {
                 >
                   <span className="text-xs opacity-75">مشتریان فعال</span>
                   <div className={isDark ? "text-2xl font-extrabold text-white" : "text-2xl font-extrabold text-[#04222B]"}>
-                    ۳۱ نفر
+                    {formatPersianNumber(stats.active_clients || 0)} نفر
                   </div>
-                  <span className="text-[11px] opacity-70 block">رضایت ۴.۹ از ۵</span>
+                  <span className="text-[11px] opacity-70 block">مراجعان یکتا</span>
                 </div>
               </div>
 
-              {/* جدول نزدیک‌ترین جلسات رزرو شده */}
               <div
                 className={
                   isDark
@@ -565,55 +743,57 @@ export default function FreelancerDashboardPage() {
                   </button>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-right text-xs sm:text-sm">
-                    <thead>
-                      <tr className={isDark ? "border-b border-white/10 text-[#98D8D0]/80" : "border-b border-[#98D8D0]/40 text-[#0A3D4A]/80"}>
-                        <th className="py-3 px-2 font-semibold">مراجع</th>
-                        <th className="py-3 px-2 font-semibold">خدمت انتخابی</th>
-                        <th className="py-3 px-2 font-semibold">تاریخ و زمان</th>
-                        <th className="py-3 px-2 font-semibold">مبلغ</th>
-                        <th className="py-3 px-2 font-semibold">وضعیت</th>
-                        <th className="py-3 px-2 font-semibold">عملیات</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {bookings.slice(0, 3).map((b) => (
-                        <tr key={b.id} className={isDark ? "hover:bg-white/5" : "hover:bg-[#E2F4F0]/50"}>
-                          <td className="py-3.5 px-2 font-bold">{b.clientName}</td>
-                          <td className="py-3.5 px-2">{b.serviceTitle}</td>
-                          <td className="py-3.5 px-2">{b.dateTime}</td>
-                          <td className="py-3.5 px-2">{b.price}</td>
-                          <td className="py-3.5 px-2">
-                            {b.status === "confirmed" ? (
-                              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400">
-                                تایید شده
-                              </span>
-                            ) : (
-                              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-400">
-                                لغو شده
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3.5 px-2">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedBooking(b)}
-                              className="px-3 py-1.5 rounded-xl text-xs bg-[#1D8B94]/25 hover:bg-[#1D8B94] text-[#98D8D0] hover:text-white cursor-pointer transition"
-                            >
-                              جزئیات
-                            </button>
-                          </td>
+                {bookings.length === 0 ? (
+                  <p className="text-xs opacity-70 py-4 text-center">هنوز رزروی ثبت نشده است.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-right text-xs sm:text-sm">
+                      <thead>
+                        <tr className={isDark ? "border-b border-white/10 text-[#98D8D0]/80" : "border-b border-[#98D8D0]/40 text-[#0A3D4A]/80"}>
+                          <th className="py-3 px-2 font-semibold">مراجع</th>
+                          <th className="py-3 px-2 font-semibold">خدمت انتخابی</th>
+                          <th className="py-3 px-2 font-semibold">تاریخ و زمان</th>
+                          <th className="py-3 px-2 font-semibold">وضعیت</th>
+                          <th className="py-3 px-2 font-semibold">عملیات</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {bookings.slice(0, 5).map((b) => (
+                          <tr key={b.id} className={isDark ? "hover:bg-white/5" : "hover:bg-[#E2F4F0]/50"}>
+                            <td className="py-3.5 px-2 font-bold">{b.client_name}</td>
+                            <td className="py-3.5 px-2">{getServiceTitleById(b.service_id, b.service_title)}</td>
+                            <td className="py-3.5 px-2">{formatDateTime(b.start_time)}</td>
+                            <td className="py-3.5 px-2">
+                              {b.status === "confirmed" ? (
+                                <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400">
+                                  تایید شده
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-400">
+                                  لغو شده
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-2">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedBooking(b)}
+                                className="px-3 py-1.5 rounded-xl text-xs bg-[#1D8B94]/25 hover:bg-[#1D8B94] text-[#98D8D0] hover:text-white cursor-pointer transition"
+                              >
+                                جزئیات
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* تب ۲: مدیریت و پایش رزروها مطابق عکس هشتم فیگما */}
+          {/* تب ۲: مدیریت و پایش رزروها */}
           {activeTab === "bookings" && (
             <div
               className={
@@ -628,11 +808,10 @@ export default function FreelancerDashboardPage() {
                     مدیریت و پایش رزروها
                   </h1>
                   <p className="text-xs opacity-75 mt-1">
-                    مشاهده جزئیات مراجعان و تغییر وضعیت نوبت‌ها
+                    مشاهده جزئیات مراجعان و لغو نوبت‌ها
                   </p>
                 </div>
 
-                {/* فیلتر تب‌های وضعیت */}
                 <div
                   className={
                     isDark
@@ -649,7 +828,7 @@ export default function FreelancerDashboardPage() {
                         : "px-3.5 py-1.5 rounded-xl opacity-75 hover:opacity-100 cursor-pointer"
                     }
                   >
-                    همه ({bookings.length})
+                    همه ({formatPersianNumber(bookings.length)})
                   </button>
                   <button
                     type="button"
@@ -660,7 +839,7 @@ export default function FreelancerDashboardPage() {
                         : "px-3.5 py-1.5 rounded-xl opacity-75 hover:opacity-100 cursor-pointer"
                     }
                   >
-                    تایید شده ({confirmedCount})
+                    تایید شده ({formatPersianNumber(confirmedCount)})
                   </button>
                   <button
                     type="button"
@@ -671,75 +850,77 @@ export default function FreelancerDashboardPage() {
                         : "px-3.5 py-1.5 rounded-xl opacity-75 hover:opacity-100 cursor-pointer"
                     }
                   >
-                    لغو شده ({bookings.length - confirmedCount})
+                    لغو شده ({formatPersianNumber(bookings.length - confirmedCount)})
                   </button>
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-right text-xs sm:text-sm">
-                  <thead>
-                    <tr className={isDark ? "border-b border-white/10 text-[#98D8D0]/80" : "border-b border-[#98D8D0]/40 text-[#0A3D4A]/80"}>
-                      <th className="py-3 px-2 font-semibold">شناسه</th>
-                      <th className="py-3 px-2 font-semibold">مراجع</th>
-                      <th className="py-3 px-2 font-semibold">خدمت</th>
-                      <th className="py-3 px-2 font-semibold">تاریخ و زمان</th>
-                      <th className="py-3 px-2 font-semibold">وضعیت</th>
-                      <th className="py-3 px-2 font-semibold">عملیات</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {filteredBookings.map((b) => (
-                      <tr key={b.id} className={isDark ? "hover:bg-white/5" : "hover:bg-[#E2F4F0]/50"}>
-                        <td className="py-3.5 px-2 font-mono text-xs opacity-80">{b.id}</td>
-                        <td className="py-3.5 px-2 font-bold">{b.clientName}</td>
-                        <td className="py-3.5 px-2">{b.serviceTitle}</td>
-                        <td className="py-3.5 px-2">{b.dateTime}</td>
-                        <td className="py-3.5 px-2">
-                          {b.status === "confirmed" ? (
-                            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400">
-                              تایید شده
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-400">
-                              لغو شده
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-2 flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedBooking(b)}
-                            className="px-3 py-1.5 rounded-xl text-xs bg-[#1D8B94]/25 hover:bg-[#1D8B94] text-[#98D8D0] hover:text-white cursor-pointer transition"
-                          >
-                            جزئیات
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleBookingStatus(b.id)}
-                            className={
-                              b.status === "confirmed"
-                                ? "px-3 py-1.5 rounded-xl text-xs bg-rose-500/15 hover:bg-rose-500 text-rose-300 hover:text-white cursor-pointer transition"
-                                : "px-3 py-1.5 rounded-xl text-xs bg-emerald-500/15 hover:bg-emerald-500 text-emerald-300 hover:text-white cursor-pointer transition"
-                            }
-                          >
-                            {b.status === "confirmed" ? "لغو نوبت" : "تایید مجدد"}
-                          </button>
-                        </td>
+              {filteredBookings.length === 0 ? (
+                <p className="text-xs opacity-70 py-6 text-center">موردی برای نمایش وجود ندارد.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right text-xs sm:text-sm">
+                    <thead>
+                      <tr className={isDark ? "border-b border-white/10 text-[#98D8D0]/80" : "border-b border-[#98D8D0]/40 text-[#0A3D4A]/80"}>
+                        <th className="py-3 px-2 font-semibold">شناسه</th>
+                        <th className="py-3 px-2 font-semibold">مراجع</th>
+                        <th className="py-3 px-2 font-semibold">خدمت</th>
+                        <th className="py-3 px-2 font-semibold">تاریخ و زمان</th>
+                        <th className="py-3 px-2 font-semibold">وضعیت</th>
+                        <th className="py-3 px-2 font-semibold">عملیات</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {filteredBookings.map((b) => (
+                        <tr key={b.id} className={isDark ? "hover:bg-white/5" : "hover:bg-[#E2F4F0]/50"}>
+                          <td className="py-3.5 px-2 font-mono text-xs opacity-80">#{b.id}</td>
+                          <td className="py-3.5 px-2 font-bold">{b.client_name}</td>
+                          <td className="py-3.5 px-2">{getServiceTitleById(b.service_id, b.service_title)}</td>
+                          <td className="py-3.5 px-2">{formatDateTime(b.start_time)}</td>
+                          <td className="py-3.5 px-2">
+                            {b.status === "confirmed" ? (
+                              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400">
+                                تایید شده
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-400">
+                                لغو شده
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-2 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedBooking(b)}
+                              className="px-3 py-1.5 rounded-xl text-xs bg-[#1D8B94]/25 hover:bg-[#1D8B94] text-[#98D8D0] hover:text-white cursor-pointer transition"
+                            >
+                              جزئیات
+                            </button>
+                            {b.status === "confirmed" && (
+                              <button
+                                type="button"
+                                onClick={() => handleCancelBooking(b.id)}
+                                className="px-3 py-1.5 rounded-xl text-xs bg-rose-500/15 hover:bg-rose-500 text-rose-300 hover:text-white cursor-pointer transition"
+                              >
+                                لغو نوبت
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
-          {/* تب ۳: تعریف و مدیریت خدمات مطابق عکس نهم فیگما */}
+          {/* تب ۳: تعریف و مدیریت خدمات */}
           {activeTab === "services" && (
             <div className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="text-right">
-                    <h1 className={isDark ? "text-xl font-extrabold text-white" : "text-xl font-extrabold text-[#04222B]"}>
+                  <h1 className={isDark ? "text-xl font-extrabold text-white" : "text-xl font-extrabold text-[#04222B]"}>
                     تعریف و مدیریت خدمات
                   </h1>
                   <p className="text-xs opacity-75 mt-1">
@@ -749,31 +930,32 @@ export default function FreelancerDashboardPage() {
 
                 <button
                   type="button"
-                  onClick={() => setShowAddServiceForm(!showAddServiceForm)}
+                  onClick={() => (showServiceForm ? setShowServiceForm(false) : openCreateServiceForm())}
                   className="px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold bg-[#1D8B94] hover:bg-[#4FB8B4] text-white shadow-md cursor-pointer transition"
                 >
-                  {showAddServiceForm ? "بستن فرم" : "+ افزودن خدمت جدید"}
+                  {showServiceForm ? "بستن فرم" : "+ افزودن خدمت جدید"}
                 </button>
               </div>
 
-              {/* فرم افزودن خدمت جدید */}
-              {showAddServiceForm && (
+              {showServiceForm && (
                 <form
-                  onSubmit={handleAddService}
+                  onSubmit={handleSaveService}
                   className={
                     isDark
                       ? "p-6 rounded-3xl border bg-[#04222B]/85 border-[#4FB8B4]/40 space-y-4 text-right shadow-xl"
                       : "p-6 rounded-3xl border bg-white border-[#1D8B94]/40 space-y-4 text-right shadow-md"
                   }
                 >
-                  <h3 className="font-bold text-sm">اطلاعات خدمت جدید:</h3>
+                  <h3 className="font-bold text-sm">
+                    {editingServiceId !== null ? "ویرایش اطلاعات خدمت:" : "اطلاعات خدمت جدید:"}
+                  </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-semibold mb-1.5">عنوان خدمت *</label>
                       <input
                         type="text"
-                        value={newServiceTitle}
-                        onChange={(e) => setNewServiceTitle(e.target.value)}
+                        value={serviceTitle}
+                        onChange={(e) => setServiceTitle(e.target.value)}
                         placeholder="مثلاً: مشاوره رزومه و مصاحبه"
                         className={
                           isDark
@@ -785,28 +967,29 @@ export default function FreelancerDashboardPage() {
                     <div>
                       <label className="block text-xs font-semibold mb-1.5">مدت زمان</label>
                       <select
-                        value={newServiceDuration}
-                        onChange={(e) => setNewServiceDuration(e.target.value)}
+                        value={serviceDuration}
+                        onChange={(e) => setServiceDuration(Number(e.target.value))}
                         className={
                           isDark
                             ? "w-full px-3.5 py-2.5 rounded-xl border bg-[#0A3D4A] border-white/15 text-xs text-white focus:outline-none"
                             : "w-full px-3.5 py-2.5 rounded-xl border bg-[#F2F8F6] border-[#98D8D0] text-xs text-[#04222B] focus:outline-none"
                         }
                       >
-                        <option value="۱۵ دقیقه">۱۵ دقیقه</option>
-                        <option value="۳۰ دقیقه">۳۰ دقیقه</option>
-                        <option value="۴۵ دقیقه">۴۵ دقیقه</option>
-                        <option value="۶۰ دقیقه">۶۰ دقیقه</option>
-                        <option value="۹۰ دقیقه">۹۰ دقیقه</option>
+                        <option value={15}>۱۵ دقیقه</option>
+                        <option value={30}>۳۰ دقیقه</option>
+                        <option value={45}>۴۵ دقیقه</option>
+                        <option value={60}>۶۰ دقیقه</option>
+                        <option value={90}>۹۰ دقیقه</option>
+                        <option value={120}>۱۲۰ دقیقه</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold mb-1.5">تعرفه (تومان) *</label>
                       <input
-                        type="text"
-                        value={newServicePrice}
-                        onChange={(e) => setNewServicePrice(e.target.value)}
-                        placeholder="مثلاً: ۶۰۰,۰۰۰"
+                        type="number"
+                        value={servicePrice}
+                        onChange={(e) => setServicePrice(e.target.value)}
+                        placeholder="مثلاً: 600000"
                         className={
                           isDark
                             ? "w-full px-3.5 py-2.5 rounded-xl border bg-white/5 border-white/15 text-xs text-white focus:outline-none"
@@ -819,8 +1002,8 @@ export default function FreelancerDashboardPage() {
                     <label className="block text-xs font-semibold mb-1.5">توضیحات کوتاه</label>
                     <input
                       type="text"
-                      value={newServiceDesc}
-                      onChange={(e) => setNewServiceDesc(e.target.value)}
+                      value={serviceDesc}
+                      onChange={(e) => setServiceDesc(e.target.value)}
                       placeholder="توضیح مختصر درباره محتوای این جلسه..."
                       className={
                         isDark
@@ -832,162 +1015,257 @@ export default function FreelancerDashboardPage() {
                   <div className="flex justify-end">
                     <button
                       type="submit"
-                      className="px-6 py-2.5 rounded-xl text-xs font-bold bg-[#1D8B94] hover:bg-[#4FB8B4] text-white cursor-pointer transition"
+                      disabled={isSavingService}
+                      className="px-6 py-2.5 rounded-xl text-xs font-bold bg-[#1D8B94] hover:bg-[#4FB8B4] disabled:opacity-60 text-white cursor-pointer transition"
                     >
-                      ذخیره خدمت جدید ✓
+                      {isSavingService
+                        ? "در حال ذخیره..."
+                        : editingServiceId !== null
+                        ? "به‌روزرسانی خدمت ✓"
+                        : "ذخیره خدمت جدید ✓"}
                     </button>
                   </div>
                 </form>
               )}
 
-              {/* گرید ۳ ستونه خدمات تعریف‌شده مطابق عکس نهم فیگما */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {services.map((srv) => (
-                  <div
-                    key={srv.id}
-                    className={
-                      isDark
-                        ? "p-6 rounded-3xl border bg-[#04222B]/75 border-white/15 text-right flex flex-col justify-between gap-5 shadow-lg"
-                        : "p-6 rounded-3xl border bg-white/90 border-white text-right flex flex-col justify-between gap-5 shadow-md"
-                    }
-                  >
-                    <div className="space-y-2.5">
-                      <span
-                        className={
-                          isDark
-                            ? "inline-block text-[11px] px-2.5 py-1 rounded-lg bg-[#1D8B94]/25 text-[#98D8D0]"
-                            : "inline-block text-[11px] px-2.5 py-1 rounded-lg bg-[#1D8B94]/10 text-[#1D8B94] font-medium"
-                        }
-                      >
-                        {srv.duration}
-                      </span>
-                      <h3 className={isDark ? "font-bold text-base text-white" : "font-bold text-base text-[#04222B]"}>
-                        {srv.title}
-                      </h3>
-                      <p className="text-xs opacity-75 leading-relaxed">
-                        {srv.description}
-                      </p>
-                    </div>
-
+              {services.length === 0 ? (
+                <div
+                  className={
+                    isDark
+                      ? "p-8 rounded-3xl border bg-[#04222B]/75 border-white/15 text-center text-xs opacity-75"
+                      : "p-8 rounded-3xl border bg-white/90 border-white text-center text-xs opacity-75"
+                  }
+                >
+                  هنوز خدمتی تعریف نکرده‌اید. روی «+ افزودن خدمت جدید» کلیک کنید.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {services.map((srv) => (
                     <div
+                      key={srv.id}
                       className={
                         isDark
-                          ? "pt-4 border-t border-white/10 flex items-center justify-between"
-                          : "pt-4 border-t border-[#98D8D0]/40 flex items-center justify-between"
+                          ? "p-6 rounded-3xl border bg-[#04222B]/75 border-white/15 text-right flex flex-col justify-between gap-5 shadow-lg"
+                          : "p-6 rounded-3xl border bg-white/90 border-white text-right flex flex-col justify-between gap-5 shadow-md"
                       }
                     >
-                      <span className={isDark ? "text-sm font-bold text-[#98D8D0]" : "text-sm font-bold text-[#1D8B94]"}>
-                        {srv.price}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteService(srv.id)}
-                        className="text-xs px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500 text-rose-400 hover:text-white cursor-pointer transition"
+                      <div className="space-y-2.5">
+                        <span
+                          className={
+                            isDark
+                              ? "inline-block text-[11px] px-2.5 py-1 rounded-lg bg-[#1D8B94]/25 text-[#98D8D0]"
+                              : "inline-block text-[11px] px-2.5 py-1 rounded-lg bg-[#1D8B94]/10 text-[#1D8B94] font-medium"
+                          }
+                        >
+                          {formatPersianNumber(srv.duration_minutes)} دقیقه
+                        </span>
+                        <h3 className={isDark ? "font-bold text-base text-white" : "font-bold text-base text-[#04222B]"}>
+                          {srv.title}
+                        </h3>
+                        <p className="text-xs opacity-75 leading-relaxed">
+                          {srv.description}
+                        </p>
+                      </div>
+
+                      <div
+                        className={
+                          isDark
+                            ? "pt-4 border-t border-white/10 flex items-center justify-between gap-2"
+                            : "pt-4 border-t border-[#98D8D0]/40 flex items-center justify-between gap-2"
+                        }
                       >
-                        حذف
-                      </button>
+                        <span className={isDark ? "text-sm font-bold text-[#98D8D0]" : "text-sm font-bold text-[#1D8B94]"}>
+                          {formatPersianNumber(srv.price)} تومان
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditServiceForm(srv)}
+                            className="text-xs px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-[#1D8B94] text-current hover:text-white cursor-pointer transition"
+                          >
+                            ویرایش
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteService(srv.id)}
+                            className="text-xs px-2.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500 text-rose-400 hover:text-white cursor-pointer transition"
+                          >
+                            حذف
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {/* تب ۴: تقویم و بازه‌های کاری آزاد مطابق عکس دهم فیگما */}
+          {/* تب ۴: تقویم و ساعات کاری (ساخت اسلات متصل به سرویس) */}
           {activeTab === "schedule" && (
             <div
               className={
                 isDark
-                  ? "p-6 rounded-3xl border bg-[#04222B]/75 border-white/15 space-y-5 text-right shadow-xl"
-                  : "p-6 rounded-3xl border bg-white/90 border-white space-y-5 text-right shadow-md"
+                  ? "p-6 rounded-3xl border bg-[#04222B]/75 border-white/15 space-y-6 text-right shadow-xl"
+                  : "p-6 rounded-3xl border bg-white/90 border-white space-y-6 text-right shadow-md"
               }
             >
               <div>
                 <h1 className={isDark ? "text-xl font-extrabold text-white" : "text-xl font-extrabold text-[#04222B]"}>
-                  تقویم و بازه‌های کاری آزاد
+                  مدیریت بازه‌های زمانی (Time Slots)
                 </h1>
                 <p className="text-xs opacity-75 mt-1">
-                  روزها و ساعاتی که مراجعان مجاز به رزرو جلسه هستند را مشخص کنید
+                  برای هر خدمت، تاریخ و ساعت شروع را انتخاب کنید؛ ساعت پایان به‌صورت خودکار محاسبه می‌شود
                 </p>
               </div>
 
-              <div className="space-y-3">
-                {schedule.map((day) => (
-                  <div
-                    key={day.id}
+              {services.length === 0 ? (
+                <div className="p-6 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-300">
+                  ابتدا در تب «خدمات و تعرفه‌ها» حداقل یک خدمت ایجاد کنید تا بتوانید برای آن بازه زمانی تعریف کنید.
+                </div>
+              ) : (
+                <>
+                  {/* فرم ساخت تایم‌اسلات جدید */}
+                  <form
+                    onSubmit={handleCreateSlot}
                     className={
                       isDark
-                        ? "p-4 rounded-2xl border border-white/10 bg-white/5 flex flex-wrap items-center justify-between gap-4"
-                        : "p-4 rounded-2xl border border-[#98D8D0]/50 bg-[#F2F8F6] flex flex-wrap items-center justify-between gap-4"
+                        ? "p-5 rounded-2xl border border-white/10 bg-white/5 space-y-4"
+                        : "p-5 rounded-2xl border border-[#98D8D0]/50 bg-[#F2F8F6] space-y-4"
                     }
                   >
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={day.active}
-                        onChange={(e) =>
-                          handleScheduleChange(day.id, "active", e.target.checked)
-                        }
-                        className="w-4 h-4 accent-[#1D8B94] cursor-pointer"
-                      />
-                      <span className={day.active ? "font-bold text-sm" : "font-medium text-sm opacity-50"}>
-                        {day.dayName}
-                      </span>
-                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5">۱. انتخاب خدمت *</label>
+                        <select
+                          value={selectedSlotServiceId}
+                          onChange={(e) => setSelectedSlotServiceId(Number(e.target.value))}
+                          className={
+                            isDark
+                              ? "w-full px-3 py-2.5 rounded-xl border bg-[#04222B] border-white/20 text-xs text-white focus:outline-none"
+                              : "w-full px-3 py-2.5 rounded-xl border bg-white border-[#98D8D0] text-xs text-[#04222B] focus:outline-none"
+                          }
+                        >
+                          {services.map((srv) => (
+                            <option key={srv.id} value={srv.id}>
+                              {srv.title} ({formatPersianNumber(srv.duration_minutes)} دقیقه)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                    {day.active ? (
-                      <div className="flex items-center gap-2.5 text-xs">
-                        <span>از ساعت</span>
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5">۲. تاریخ *</label>
                         <input
-                          type="time"
-                          value={day.startTime}
-                          onChange={(e) =>
-                            handleScheduleChange(day.id, "startTime", e.target.value)
-                          }
+                          type="date"
+                          value={slotDate}
+                          onChange={(e) => setSlotDate(e.target.value)}
                           className={
                             isDark
-                              ? "px-3 py-1.5 rounded-xl border bg-[#04222B] border-white/20 text-white"
-                              : "px-3 py-1.5 rounded-xl border bg-white border-[#98D8D0] text-[#04222B]"
-                          }
-                        />
-                        <span>تا ساعت</span>
-                        <input
-                          type="time"
-                          value={day.endTime}
-                          onChange={(e) =>
-                            handleScheduleChange(day.id, "endTime", e.target.value)
-                          }
-                          className={
-                            isDark
-                              ? "px-3 py-1.5 rounded-xl border bg-[#04222B] border-white/20 text-white"
-                              : "px-3 py-1.5 rounded-xl border bg-white border-[#98D8D0] text-[#04222B]"
+                              ? "w-full px-3 py-2.5 rounded-xl border bg-[#04222B] border-white/20 text-xs text-white focus:outline-none"
+                              : "w-full px-3 py-2.5 rounded-xl border bg-white border-[#98D8D0] text-xs text-[#04222B] focus:outline-none"
                           }
                         />
                       </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5">۳. ساعت شروع *</label>
+                        <input
+                          type="time"
+                          value={slotStartTime}
+                          onChange={(e) => setSlotStartTime(e.target.value)}
+                          className={
+                            isDark
+                              ? "w-full px-3 py-2.5 rounded-xl border bg-[#04222B] border-white/20 text-xs text-white focus:outline-none"
+                              : "w-full px-3 py-2.5 rounded-xl border bg-white border-[#98D8D0] text-xs text-[#04222B] focus:outline-none"
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5">۴. ساعت پایان (خودکار)</label>
+                        <input
+                          type="time"
+                          value={slotEndTime}
+                          readOnly
+                          className={
+                            isDark
+                              ? "w-full px-3 py-2.5 rounded-xl border bg-white/5 border-white/10 text-xs text-[#98D8D0] cursor-not-allowed"
+                              : "w-full px-3 py-2.5 rounded-xl border bg-[#E2F4F0]/60 border-[#98D8D0]/50 text-xs text-[#1D8B94] cursor-not-allowed"
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                      {slotMessage ? (
+                        <span className="text-xs text-emerald-400 font-semibold">{slotMessage}</span>
+                      ) : (
+                        <span></span>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={isCreatingSlot}
+                        className="px-6 py-2.5 rounded-xl text-xs font-bold bg-[#1D8B94] hover:bg-[#4FB8B4] disabled:opacity-60 text-white shadow-md cursor-pointer transition"
+                      >
+                        {isCreatingSlot ? "در حال ثبت..." : "+ افزودن تایم‌اسلات آزاد"}
+                      </button>
+                    </div>
+                  </form>
+
+                  {/* لیست اسلات‌های تعریف‌شده برای سرویس انتخابی */}
+                  <div className="space-y-3">
+                    <h2 className="text-sm font-bold">بازه‌های ثبت‌شده برای این خدمت:</h2>
+
+                    {isLoadingSlots ? (
+                      <p className="text-xs opacity-70">در حال بارگذاری بازه‌ها...</p>
+                    ) : slots.length === 0 ? (
+                      <p className="text-xs opacity-70 py-4">
+                        هنوز بازه زمانی برای این خدمت ثبت نشده است.
+                      </p>
                     ) : (
-                      <span className="text-xs opacity-50">غیرفعال (بدون پذیرش)</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {slots.map((slot) => (
+                          <div
+                            key={slot.id}
+                            className={
+                              isDark
+                                ? "p-4 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-between gap-3 text-xs"
+                                : "p-4 rounded-2xl border border-[#98D8D0]/50 bg-white flex items-center justify-between gap-3 text-xs"
+                            }
+                          >
+                            <div className="space-y-1">
+                              <div className="font-bold">{formatDateTime(slot.start_time)}</div>
+                              <div>
+                                {slot.is_booked ? (
+                                  <span className="text-[11px] text-amber-400 font-semibold">
+                                    ● رزرو شده
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] text-emerald-400 font-semibold">
+                                    ● آزاد
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {!slot.is_booked && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSlot(slot.id)}
+                                className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500 text-rose-400 hover:text-white cursor-pointer transition"
+                              >
+                                حذف
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
-                ))}
-              </div>
-
-              <div className="pt-2 flex items-center justify-between">
-                {scheduleSaved ? (
-                  <span className="text-xs text-emerald-400 font-semibold">
-                    ✓ تنظیمات ساعات کاری با موفقیت ذخیره شد.
-                  </span>
-                ) : (
-                  <span></span>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setScheduleSaved(true)}
-                  className="px-6 py-3 rounded-2xl text-xs sm:text-sm font-bold bg-[#1D8B94] hover:bg-[#4FB8B4] text-white shadow-lg cursor-pointer transition"
-                >
-                  ذخیره تغییرات تقویم ✓
-                </button>
-              </div>
+                </>
+              )}
             </div>
           )}
         </main>
@@ -995,7 +1273,7 @@ export default function FreelancerDashboardPage() {
 
       {/* مودال نمایش جزئیات رزرو */}
       {selectedBooking && (
-        <div 
+        <div
           onClick={() => setSelectedBooking(null)}
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
         >
@@ -1008,7 +1286,7 @@ export default function FreelancerDashboardPage() {
             }
           >
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="font-bold text-base">جزئیات رزرو ({selectedBooking.id})</h3>
+              <h3 className="font-bold text-base">جزئیات رزرو (#{selectedBooking.id})</h3>
               <button
                 type="button"
                 onClick={() => setSelectedBooking(null)}
@@ -1021,50 +1299,50 @@ export default function FreelancerDashboardPage() {
             <div className="space-y-2.5 text-xs sm:text-sm">
               <div className="flex justify-between">
                 <span className="opacity-70">نام مراجع:</span>
-                <strong>{selectedBooking.clientName}</strong>
+                <strong>{selectedBooking.client_name}</strong>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">شماره تماس:</span>
-                <strong dir="ltr">{selectedBooking.clientPhone}</strong>
+                <strong dir="ltr">{selectedBooking.client_phone}</strong>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">ایمیل:</span>
-                <strong dir="ltr">{selectedBooking.clientEmail}</strong>
+                <strong dir="ltr">{selectedBooking.client_email}</strong>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">خدمت:</span>
-                <strong>{selectedBooking.serviceTitle}</strong>
+                <strong>{getServiceTitleById(selectedBooking.service_id, selectedBooking.service_title)}</strong>
               </div>
               <div className="flex justify-between">
                 <span className="opacity-70">زمان جلسه:</span>
-                <strong>{selectedBooking.dateTime}</strong>
+                <strong>{formatDateTime(selectedBooking.start_time)}</strong>
               </div>
-              <div className="pt-2">
-                <span className="opacity-70 block mb-1">توضیحات مراجع:</span>
-                <p
-                  className={
-                    isDark
-                      ? "p-3 rounded-xl bg-white/5 text-xs leading-relaxed"
-                      : "p-3 rounded-xl bg-[#E2F4F0] text-xs leading-relaxed"
-                  }
-                >
-                  {selectedBooking.notes}
-                </p>
-              </div>
+              {selectedBooking.notes && (
+                <div className="pt-2">
+                  <span className="opacity-70 block mb-1">توضیحات مراجع:</span>
+                  <p
+                    className={
+                      isDark
+                        ? "p-3 rounded-xl bg-white/5 text-xs leading-relaxed"
+                        : "p-3 rounded-xl bg-[#E2F4F0] text-xs leading-relaxed"
+                    }
+                  >
+                    {selectedBooking.notes}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="pt-3 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => handleToggleBookingStatus(selectedBooking.id)}
-                className={
-                  selectedBooking.status === "confirmed"
-                    ? "px-4 py-2 rounded-xl text-xs font-bold bg-rose-500 text-white cursor-pointer"
-                    : "px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-white cursor-pointer"
-                }
-              >
-                {selectedBooking.status === "confirmed" ? "لغو این رزرو" : "تایید این رزرو"}
-              </button>
+              {selectedBooking.status === "confirmed" && (
+                <button
+                  type="button"
+                  onClick={() => handleCancelBooking(selectedBooking.id)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-500 text-white cursor-pointer"
+                >
+                  لغو این رزرو
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setSelectedBooking(null)}
