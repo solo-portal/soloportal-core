@@ -41,14 +41,34 @@ const SERVICES: ServiceItem[] = [
 export default function HomePage() {
   const [isDark, setIsDark] = useState<boolean>(true);
   const [isMounted, setIsMounted] = useState<boolean>(false);
+  const [authUser, setAuthUser] = useState<{ fullName: string; slug: string } | null>(null);
 
   useLayoutEffect(() => {
     const savedTheme = localStorage.getItem("soloportal_theme");
     if (savedTheme !== null) {
       setIsDark(savedTheme === "dark");
     }
+    const token = localStorage.getItem("soloportal_token");
+    const savedUser = localStorage.getItem("soloportal_demo_user");
+    if (token && savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        setAuthUser({
+          fullName: parsed.fullName || "کاربر",
+          slug: parsed.slug || "",
+        });
+      } catch {
+        setAuthUser({ fullName: "کاربر", slug: "" });
+      }
+    }
     setIsMounted(true);
   }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("soloportal_token");
+    localStorage.removeItem("soloportal_demo_user");
+    setAuthUser(null);
+  };
 
   const [selectedServiceId, setSelectedServiceId] = useState<string>("strategy");
   const [selectedTime, setSelectedTime] = useState<string>("۱۰:۳۰");
@@ -195,22 +215,56 @@ export default function HomePage() {
               )}
             </button>
 
-            <a
-              href="/login?mode=login"
-              className={
-                isDark
-                  ? "text-sm font-medium px-4 py-2 text-[#E2F4F0]/90 hover:text-white whitespace-nowrap transition"
-                  : "text-sm font-medium px-4 py-2 text-[#0A3D4A] hover:text-black whitespace-nowrap transition"
-              }
-            >
-              ورود
-            </a>
-            <a
-              href="/login?mode=register"
-              className="text-sm font-bold px-5 py-2.5 rounded-2xl bg-[#1D8B94] hover:bg-[#4FB8B4] text-white shadow-md whitespace-nowrap transition"
-            >
-              شروع رایگان
-            </a>
+            {authUser ? (
+              <>
+                <a
+                  href="/dashboard?tab=my-bookings"
+                  className={
+                    isDark
+                      ? "text-xs sm:text-sm font-medium px-3.5 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/15 text-[#98D8D0] whitespace-nowrap transition"
+                      : "text-xs sm:text-sm font-medium px-3.5 py-2 rounded-xl border border-[#1D8B94]/25 bg-white hover:bg-[#E2F4F0] text-[#1D8B94] whitespace-nowrap transition"
+                  }
+                >
+                  نوبت‌های من
+                </a>
+                <a
+                  href="/dashboard"
+                  className="text-xs sm:text-sm font-bold px-4 py-2.5 rounded-2xl bg-[#1D8B94] hover:bg-[#4FB8B4] text-white shadow-md whitespace-nowrap transition"
+                >
+                  پنل {authUser.fullName}
+                </a>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className={
+                    isDark
+                      ? "text-xs px-3 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/20 cursor-pointer whitespace-nowrap transition"
+                      : "text-xs px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/20 cursor-pointer whitespace-nowrap transition"
+                  }
+                >
+                  خروج
+                </button>
+              </>
+            ) : (
+              <>
+                <a
+                  href="/login?mode=login"
+                  className={
+                    isDark
+                      ? "text-sm font-medium px-4 py-2 text-[#E2F4F0]/90 hover:text-white whitespace-nowrap transition"
+                      : "text-sm font-medium px-4 py-2 text-[#0A3D4A] hover:text-black whitespace-nowrap transition"
+                  }
+                >
+                  ورود
+                </a>
+                <a
+                  href="/login?mode=register"
+                  className="text-sm font-bold px-5 py-2.5 rounded-2xl bg-[#1D8B94] hover:bg-[#4FB8B4] text-white shadow-md whitespace-nowrap transition"
+                >
+                  شروع رایگان
+                </a>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -253,13 +307,13 @@ export default function HomePage() {
 
         <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
           <a
-            href="/book/shaghayegh"
+            href={authUser?.slug ? `/book/${authUser.slug}` : "/prototype"}
             className="font-bold px-7 py-3.5 rounded-2xl flex items-center gap-2.5 bg-[#1D8B94] hover:bg-[#4FB8B4] text-white shadow-lg transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            مشاهده دمو رزرو زنده (Live Demo)
+            {authUser?.slug ? "مشاهده پورتال رزرو من" : "مشاهده دمو تعاملی (Live Demo)"}
           </a>
 
           <a

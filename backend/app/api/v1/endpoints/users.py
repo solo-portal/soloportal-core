@@ -18,6 +18,7 @@ from app.crud.user import (
     create_user,
     get_user_by_email,
     get_user_by_slug,
+    search_users,
     update_user,
 )
 from app.db.session import get_db
@@ -29,6 +30,15 @@ from app.schemas.time_slot import TimeSlotCreate, TimeSlotRead
 from app.schemas.user import UserCreate, UserRead, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("", response_model=list[UserRead])
+def list_or_search_users(
+    q: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """جستجو و دریافت لیست متخصصان فعال بر اساس نام، اسلاگ یا عنوان تخصصی."""
+    return search_users(db, query=q)
 
 
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
@@ -171,6 +181,7 @@ def create_slot_for_user(
 def list_user_available_slots(
     slug: str,
     service_id: int | None = None,
+    only_available: bool = True,
     db: Session = Depends(get_db),
 ):
     user = get_user_by_slug(db, slug=slug.lower().strip())
@@ -180,7 +191,7 @@ def list_user_available_slots(
             detail="User not found.",
         )
     return get_available_slots_by_user_id(
-        db, user_id=user.id, service_id=service_id, only_available=True
+        db, user_id=user.id, service_id=service_id, only_available=only_available
     )
 
 

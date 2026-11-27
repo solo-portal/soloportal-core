@@ -19,6 +19,15 @@ class TimeSlotCreate(TimeSlotBase):
     service_id: int
 
 
+class HostSummary(BaseModel):
+    id: int
+    full_name: str
+    slug: str
+    headline: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class TimeSlotRead(TimeSlotBase):
     id: int
     user_id: int
@@ -26,5 +35,6 @@ class TimeSlotRead(TimeSlotBase):
     is_booked: bool
     created_at: datetime
     service: ServiceRead | None = None
+    user: HostSummary | None = None
 
     model_config = ConfigDict(from_attributes=True)

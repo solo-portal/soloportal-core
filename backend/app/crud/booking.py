@@ -48,7 +48,10 @@ def get_user_bookings(db: Session, client_id: int) -> list[Booking]:
     """رزروهایی که کاربر به عنوان مراجع (مشتری) ثبت کرده است."""
     stmt = (
         select(Booking)
-        .options(joinedload(Booking.slot).joinedload(TimeSlot.service))
+        .options(
+            joinedload(Booking.slot).joinedload(TimeSlot.service),
+            joinedload(Booking.slot).joinedload(TimeSlot.user),
+        )
         .where(Booking.client_id == client_id)
         .order_by(Booking.created_at.desc())
     )

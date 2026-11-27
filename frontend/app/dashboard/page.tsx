@@ -4,7 +4,7 @@ import { useState, useLayoutEffect, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
 
-type DashboardTab = "overview" | "bookings" | "services" | "schedule";
+type DashboardTab = "overview" | "bookings" | "my-bookings" | "services" | "schedule";
 
 interface UserProfile {
   id: number;
@@ -32,6 +32,20 @@ interface BookingItem {
   price?: number;
   status: "confirmed" | "cancelled" | string;
   notes?: string;
+  host_name?: string;
+  host_slug?: string;
+  slot?: {
+    start_time: string;
+    end_time?: string;
+    service?: {
+      title?: string;
+      price?: number;
+    };
+    user?: {
+      full_name?: string;
+      slug?: string;
+    };
+  };
 }
 
 interface DashboardService {
@@ -48,6 +62,9 @@ interface TimeSlotItem {
   start_time: string;
   end_time: string;
   is_booked: boolean;
+  service?: {
+    title?: string;
+  };
 }
 
 export default function FreelancerDashboardPage() {
@@ -71,6 +88,7 @@ export default function FreelancerDashboardPage() {
 
   // وضعیت‌های مدیریت رزروها
   const [bookings, setBookings] = useState<BookingItem[]>([]);
+  const [myBookings, setMyBookings] = useState<BookingItem[]>([]);
   const [bookingFilter, setBookingFilter] = useState<"all" | "confirmed" | "cancelled">("all");
   const [selectedBooking, setSelectedBooking] = useState<BookingItem | null>(null);
 
@@ -96,6 +114,12 @@ export default function FreelancerDashboardPage() {
 
   const formatPersianNumber = (num: number) =>
     num.toLocaleString("fa-IR");
+
+  const formatPrice = (price?: number) => {
+    if (price === 0) return "رایگان";
+    if (price === undefined || price === null) return "—";
+    return `${formatPersianNumber(price)} تومان`;
+  };
 
   const formatDateTime = (isoString: string) => {
     try {
@@ -129,8 +153,8 @@ export default function FreelancerDashboardPage() {
         })
       );
 
-      // ۲. دریافت هم‌زمان آمار، رزروها و خدمات از بک‌اند
-      const [statsRes, bookingsRes, servicesRes] = await Promise.all([
+      // ۲. دریافت هم‌زمان آمار، رزروهای دریافتی، رزروهای من و خدمات از بک‌اند
+      const [statsRes, bookingsRes, myBookingsRes, servicesRes] = await Promise.all([
         apiRequest<HostStats>("/bookings/host/stats", { method: "GET" }, true).catch(() => ({
           total_bookings: 0,
           upcoming_bookings: 0,
@@ -138,13 +162,27 @@ export default function FreelancerDashboardPage() {
           active_clients: 0,
         })),
         apiRequest<BookingItem[]>("/bookings/host", { method: "GET" }, true).catch(() => []),
+        apiRequest<BookingItem[]>("/bookings/mine", { method: "GET" }, true).catch(() => []),
         apiRequest<DashboardService[]>(`/users/${me.slug}/services`, { method: "GET" }, true).catch(
           () => []
         ),
       ]);
 
+      const normalizeList = (list: BookingItem[]): BookingItem[] =>
+        (Array.isArray(list) ? list : []).map((b) => ({
+          ...b,
+          status: (b.status || "confirmed").toLowerCase(),
+          start_time: b.slot?.start_time || b.start_time || "",
+          end_time: b.slot?.end_time || b.end_time,
+          service_title: b.slot?.service?.title || b.service_title,
+          price: b.slot?.service?.price ?? b.price,
+          host_name: b.slot?.user?.full_name || "مشاور",
+          host_slug: b.slot?.user?.slug || "",
+        }));
+
       setStats(statsRes);
-      setBookings(Array.isArray(bookingsRes) ? bookingsRes : []);
+      setBookings(normalizeList(bookingsRes));
+      setMyBookings(normalizeList(myBookingsRes));
       const validServices = Array.isArray(servicesRes) ? servicesRes : [];
       setServices(validServices);
 
@@ -168,6 +206,18 @@ export default function FreelancerDashboardPage() {
     if (!token) {
       router.replace("/login?redirect=/dashboard");
       return;
+    }
+
+    // بررسی تب درخواستی از URL (مثلاً ?tab=my-bookings)
+    const tabParam = new URLSearchParams(window.location.search).get("tab");
+    if (
+      tabParam === "overview" ||
+      tabParam === "bookings" ||
+      tabParam === "my-bookings" ||
+      tabParam === "services" ||
+      tabParam === "schedule"
+    ) {
+      setActiveTab(tabParam);
     }
 
     // مقدار پیش‌فرض تاریخ امروز برای فرم اسلات
@@ -195,16 +245,16 @@ export default function FreelancerDashboardPage() {
     setSlotEndTime(`${endH}:${endM}`);
   }, [selectedSlotServiceId, slotStartTime, services]);
 
-  // دریافت اسلات‌های سرویس انتخاب‌شده
+  // دریافت تمام اسلات‌های ثبت‌شده فریلنسر (آزاد و رزروشده) برای همه خدمات
   const fetchSlotsForService = useCallback(async () => {
-    if (!userSlug || !selectedSlotServiceId) {
+    if (!userSlug) {
       setSlots([]);
       return;
     }
     setIsLoadingSlots(true);
     try {
       const data = await apiRequest<TimeSlotItem[]>(
-        `/users/${userSlug}/slots?service_id=${selectedSlotServiceId}`,
+        `/users/${userSlug}/slots?only_available=false`,
         { method: "GET" },
         true
       );
@@ -214,13 +264,13 @@ export default function FreelancerDashboardPage() {
     } finally {
       setIsLoadingSlots(false);
     }
-  }, [userSlug, selectedSlotServiceId]);
+  }, [userSlug]);
 
   useEffect(() => {
-    if (activeTab === "schedule" && selectedSlotServiceId) {
+    if (activeTab === "schedule" && userSlug) {
       fetchSlotsForService();
     }
-  }, [activeTab, selectedSlotServiceId, fetchSlotsForService]);
+  }, [activeTab, userSlug, fetchSlotsForService]);
 
   const handleLogout = () => {
     localStorage.removeItem("soloportal_token");
@@ -266,6 +316,17 @@ export default function FreelancerDashboardPage() {
     }
   };
 
+  const handleCancelMyBooking = async (bookingId: number) => {
+    try {
+      await apiRequest(`/bookings/${bookingId}`, { method: "DELETE" }, true);
+      setMyBookings((prev) =>
+        prev.map((item) => (item.id === bookingId ? { ...item, status: "cancelled" } : item))
+      );
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "خطا در لغو نوبت");
+    }
+  };
+
   const openCreateServiceForm = () => {
     setEditingServiceId(null);
     setServiceTitle("");
@@ -289,8 +350,8 @@ export default function FreelancerDashboardPage() {
     if (!serviceTitle.trim() || !servicePrice.trim() || !userSlug) return;
 
     const numericPrice = Number(String(servicePrice).replace(/[^\d]/g, ""));
-    if (isNaN(numericPrice) || numericPrice <= 0) {
-      setApiError("لطفاً مبلغ معتبر (به عدد) وارد کنید.");
+    if (String(servicePrice).trim() === "" || isNaN(numericPrice) || numericPrice < 0) {
+      setApiError("لطفاً مبلغ معتبر (عدد ۰ یا بیشتر) وارد کنید.");
       return;
     }
 
@@ -364,8 +425,8 @@ export default function FreelancerDashboardPage() {
     setApiError("");
 
     try {
-      const startIso = `${slotDate}T${slotStartTime}:00`;
-      const endIso = `${slotDate}T${slotEndTime}:00`;
+      const startIso = new Date(`${slotDate}T${slotStartTime}:00`).toISOString();
+      const endIso = new Date(`${slotDate}T${slotEndTime}:00`).toISOString();
 
       await apiRequest(
         `/users/${userSlug}/slots`,
@@ -586,6 +647,26 @@ export default function FreelancerDashboardPage() {
                 </span>
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/20">
                   {formatPersianNumber(bookings.length)}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("my-bookings")}
+                className={
+                  activeTab === "my-bookings"
+                    ? "w-full text-right px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold bg-[#1D8B94] text-white shadow cursor-pointer flex items-center justify-between transition"
+                    : isDark
+                    ? "w-full text-right px-4 py-3 rounded-2xl text-xs sm:text-sm font-medium text-[#E2F4F0]/80 hover:bg-white/10 cursor-pointer flex items-center justify-between transition"
+                    : "w-full text-right px-4 py-3 rounded-2xl text-xs sm:text-sm font-medium text-[#0A3D4A] hover:bg-[#E2F4F0] cursor-pointer flex items-center justify-between transition"
+                }
+              >
+                <span className="flex items-center gap-2.5">
+                  <span>🙋‍♂️</span>
+                  <span>نوبت‌های من (مراجع)</span>
+                </span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/20">
+                  {formatPersianNumber(myBookings.length)}
                 </span>
               </button>
 
@@ -915,6 +996,119 @@ export default function FreelancerDashboardPage() {
             </div>
           )}
 
+          {/* تب جدید: نوبت‌های من (به‌عنوان مراجع) */}
+          {activeTab === "my-bookings" && (
+            <div
+              className={
+                isDark
+                  ? "p-6 rounded-3xl border bg-[#04222B]/75 border-white/15 space-y-5 shadow-xl"
+                  : "p-6 rounded-3xl border bg-white/90 border-white space-y-5 shadow-md"
+              }
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="text-right">
+                  <h1 className={isDark ? "text-xl font-extrabold text-white" : "text-xl font-extrabold text-[#04222B]"}>
+                    نوبت‌های من (به‌عنوان مراجع)
+                  </h1>
+                  <p className="text-xs opacity-75 mt-1">
+                    فهرست جلساتی که شما از سایر مشاوران و فریلنسرها رزرو کرده‌اید
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <a
+                    href="/book"
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-[#1D8B94] hover:bg-[#4FB8B4] text-white shadow-sm transition"
+                  >
+                    + رزرو تایمی دیگر
+                  </a>
+                  <a
+                    href={userSlug ? `/book/${userSlug}` : "/book"}
+                    className={
+                      isDark
+                        ? "px-4 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-[#E2F4F0] border border-white/15 transition"
+                        : "px-4 py-2 rounded-xl text-xs font-semibold bg-[#E2F4F0] hover:bg-[#98D8D0]/40 text-[#04222B] border border-[#1D8B94]/25 transition"
+                    }
+                  >
+                    بازگشت به صفحه رزرو
+                  </a>
+                </div>
+              </div>
+
+              {myBookings.length === 0 ? (
+                <div className="py-10 text-center space-y-3">
+                  <p className="text-xs opacity-70">شما هنوز هیچ نوبتی رزرو نکرده‌اید.</p>
+                  <a
+                    href="/book"
+                    className="inline-block px-5 py-2.5 rounded-xl text-xs font-bold bg-[#1D8B94] hover:bg-[#4FB8B4] text-white transition"
+                  >
+                    مشاهده پورتال رزرو
+                  </a>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right text-xs sm:text-sm">
+                    <thead>
+                      <tr className={isDark ? "border-b border-white/10 text-[#98D8D0]/80" : "border-b border-[#98D8D0]/40 text-[#0A3D4A]/80"}>
+                        <th className="py-3 px-2 font-semibold">مشاور / فریلنسر</th>
+                        <th className="py-3 px-2 font-semibold">خدمت</th>
+                        <th className="py-3 px-2 font-semibold">مبلغ</th>
+                        <th className="py-3 px-2 font-semibold">تاریخ و زمان</th>
+                        <th className="py-3 px-2 font-semibold">وضعیت</th>
+                        <th className="py-3 px-2 font-semibold">عملیات</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {myBookings.map((b) => (
+                        <tr key={b.id} className={isDark ? "hover:bg-white/5" : "hover:bg-[#E2F4F0]/50"}>
+                          <td className="py-3.5 px-2 font-bold">
+                            {b.host_slug ? (
+                              <a
+                                href={`/book/${b.host_slug}`}
+                                className={isDark ? "text-[#98D8D0] hover:underline" : "text-[#1D8B94] hover:underline"}
+                              >
+                                {b.host_name}
+                              </a>
+                            ) : (
+                              b.host_name
+                            )}
+                          </td>
+                          <td className="py-3.5 px-2">{getServiceTitleById(b.service_id, b.service_title)}</td>
+                          <td className="py-3.5 px-2">{formatPrice(b.price)}</td>
+                          <td className="py-3.5 px-2">{formatDateTime(b.start_time)}</td>
+                          <td className="py-3.5 px-2">
+                            {b.status === "confirmed" ? (
+                              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400">
+                                تایید شده
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-400">
+                                لغو شده
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-2">
+                            {b.status === "confirmed" ? (
+                              <button
+                                type="button"
+                                onClick={() => handleCancelMyBooking(b.id)}
+                                className="px-3 py-1.5 rounded-xl text-xs bg-rose-500/15 hover:bg-rose-500 text-rose-300 hover:text-white cursor-pointer transition"
+                              >
+                                لغو نوبت
+                              </button>
+                            ) : (
+                              <span className="text-xs opacity-50">لغو شده</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* تب ۳: تعریف و مدیریت خدمات */}
           {activeTab === "services" && (
             <div className="space-y-5">
@@ -1075,7 +1269,7 @@ export default function FreelancerDashboardPage() {
                         }
                       >
                         <span className={isDark ? "text-sm font-bold text-[#98D8D0]" : "text-sm font-bold text-[#1D8B94]"}>
-                          {formatPersianNumber(srv.price)} تومان
+                          {formatPrice(srv.price)}
                         </span>
                         <div className="flex items-center gap-1.5">
                           <button
@@ -1214,15 +1408,17 @@ export default function FreelancerDashboardPage() {
                     </div>
                   </form>
 
-                  {/* لیست اسلات‌های تعریف‌شده برای سرویس انتخابی */}
+                  {/* لیست تمام اسلات‌های تعریف‌شده (آزاد و رزروشده) */}
                   <div className="space-y-3">
-                    <h2 className="text-sm font-bold">بازه‌های ثبت‌شده برای این خدمت:</h2>
+                    <h2 className="text-sm font-bold">
+                      تمام بازه‌های زمانی ثبت‌شده شما ({formatPersianNumber(slots.length)}):
+                    </h2>
 
                     {isLoadingSlots ? (
                       <p className="text-xs opacity-70">در حال بارگذاری بازه‌ها...</p>
                     ) : slots.length === 0 ? (
                       <p className="text-xs opacity-70 py-4">
-                        هنوز بازه زمانی برای این خدمت ثبت نشده است.
+                        هنوز بازه زمانی ثبت نشده است.
                       </p>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1236,6 +1432,9 @@ export default function FreelancerDashboardPage() {
                             }
                           >
                             <div className="space-y-1">
+                              <div className={isDark ? "text-[11px] text-[#98D8D0] font-semibold" : "text-[11px] text-[#1D8B94] font-semibold"}>
+                                {slot.service?.title || getServiceTitleById(slot.service_id)}
+                              </div>
                               <div className="font-bold">{formatDateTime(slot.start_time)}</div>
                               <div>
                                 {slot.is_booked ? (
