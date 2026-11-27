@@ -61,3 +61,16 @@ def test_update_profile_and_duplicate_slug_guard(client, two_users):
         headers=two_users["host_headers"],
     )
     assert dup.status_code == 400
+
+
+def test_search_users_directory(client, two_users):
+    # لیست کلی کاربران فعال
+    all_res = client.get("/api/v1/users")
+    assert all_res.status_code == 200
+    assert any(u["slug"] == two_users["host"]["slug"] for u in all_res.json())
+
+    # جستجو بر اساس اسلاگ یا عنوان تخصصی
+    q_res = client.get(f"/api/v1/users?q={two_users['host']['slug']}")
+    assert q_res.status_code == 200
+    assert len(q_res.json()) >= 1
+    assert q_res.json()[0]["slug"] == two_users["host"]["slug"]

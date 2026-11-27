@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash
@@ -12,6 +12,22 @@ def get_user_by_email(db: Session, email: str) -> User | None:
 
 def get_user_by_slug(db: Session, slug: str) -> User | None:
     return db.scalar(select(User).where(User.slug == slug))
+
+
+def search_users(db: Session, query: str | None = None, limit: int = 50) -> list[User]:
+    """جستجوی فریلنسرها و کاربران فعال بر اساس نام، اسلاگ یا عنوان تخصصی."""
+    stmt = select(User).where(User.is_active == True)
+    if query and query.strip():
+        pattern = f"%{query.strip()}%"
+        stmt = stmt.where(
+            or_(
+                User.full_name.ilike(pattern),
+                User.slug.ilike(pattern),
+                User.headline.ilike(pattern),
+            )
+        )
+    stmt = stmt.order_by(User.id.desc()).limit(limit)
+    return list(db.scalars(stmt).all())
 
 
 def create_user(db: Session, user_in: UserCreate) -> User:

@@ -31,6 +31,7 @@ export async function apiRequest<T>(
   }
 
   const response = await fetch(`${BASE_URL}${endpoint}`, {
+    cache: "no-store",
     ...options,
     headers,
   });

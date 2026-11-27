@@ -66,8 +66,11 @@ export default function DynamicBookingPage() {
 
   // نتیجه تایید نهایی
   const [confirmedBookingId, setConfirmedBookingId] = useState<number | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
   const formatPersianNumber = (num: number) => num.toLocaleString("fa-IR");
+  const formatPrice = (price: number) =>
+    price === 0 ? "رایگان" : `${formatPersianNumber(price)} تومان`;
 
   const formatSlotDateTime = (isoString: string) => {
     try {
@@ -91,6 +94,8 @@ export default function DynamicBookingPage() {
     }
 
     // اگر کاربر لاگین کرده باشد، نام و ایمیلش به‌صورت خودکار پر می‌شود
+    const token = localStorage.getItem("soloportal_token");
+    if (token) setIsLoggedIn(true);
     const savedUser = localStorage.getItem("soloportal_demo_user");
     if (savedUser) {
       try {
@@ -102,8 +107,27 @@ export default function DynamicBookingPage() {
       }
     }
 
+    // بازیابی وضعیت رزرو در حال انجام پس از بازگشت از صفحه ورود/ثبت‌نام
+    if (slug) {
+      const draftKey = `soloportal_pending_booking_${slug}`;
+      const draftRaw = sessionStorage.getItem(draftKey);
+      if (draftRaw && localStorage.getItem("soloportal_token")) {
+        try {
+          const draft = JSON.parse(draftRaw);
+          if (draft.selectedServiceId) setSelectedServiceId(draft.selectedServiceId);
+          if (draft.selectedSlotId) setSelectedSlotId(draft.selectedSlotId);
+          if (draft.clientPhone) setClientPhone(draft.clientPhone);
+          if (draft.notes) setNotes(draft.notes);
+          if (draft.step === 2 || draft.step === 3) setStep(draft.step);
+          sessionStorage.removeItem(draftKey);
+        } catch {
+          sessionStorage.removeItem(draftKey);
+        }
+      }
+    }
+
     setIsMounted(true);
-  }, []);
+  }, [slug]);
 
   // دریافت اطلاعات فریلنسر و خدمات از بک‌اند
   useEffect(() => {
@@ -122,7 +146,7 @@ export default function DynamicBookingPage() {
         const validServices = Array.isArray(servicesData) ? servicesData : [];
         setServices(validServices);
         if (validServices.length > 0) {
-          setSelectedServiceId(validServices[0].id);
+          setSelectedServiceId((prev) => (prev !== null ? prev : validServices[0].id));
         }
       } catch (err: unknown) {
         setNotFoundError(
@@ -155,7 +179,7 @@ export default function DynamicBookingPage() {
   }, [slug, selectedServiceId]);
 
   useEffect(() => {
-    if (step === 2 && selectedServiceId) {
+    if ((step === 2 || step === 3) && selectedServiceId) {
       fetchAvailableSlots();
     }
   }, [step, selectedServiceId, fetchAvailableSlots]);
@@ -211,10 +235,14 @@ export default function DynamicBookingPage() {
       );
 
       setConfirmedBookingId(created.id || Math.floor(100 + Math.random() * 900));
+      // حذف فوری اسلات رزروشده از لیست اسلات‌های آزاد در حافظه صفحه
+      setSlots((prev) => prev.filter((s) => s.id !== selectedSlot.id));
     } catch (err: unknown) {
       setFormError(
         err instanceof Error ? err.message : "خطا در ثبت نوبت. لطفاً دوباره تلاش کنید."
       );
+      // در صورت بروز خطای همزمانی یا پر شدن اسلات، لیست اسلات‌های آزاد را دوباره از سرور بگیر
+      fetchAvailableSlots();
     } finally {
       setIsSubmitting(false);
     }
@@ -303,6 +331,19 @@ export default function DynamicBookingPage() {
               )}
             </button>
 
+            {isLoggedIn && (
+              <a
+                href="/dashboard?tab=my-bookings"
+                className={
+                  isDark
+                    ? "text-xs sm:text-sm font-medium px-3.5 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/15 text-[#98D8D0] transition"
+                    : "text-xs sm:text-sm font-medium px-3.5 py-2 rounded-xl border border-[#1D8B94]/25 bg-white hover:bg-[#E2F4F0] text-[#1D8B94] transition"
+                }
+              >
+                نوبت‌های من
+              </a>
+            )}
+
             <a
               href="/"
               className={
@@ -343,12 +384,27 @@ export default function DynamicBookingPage() {
             <p className="text-xs opacity-75">
               ممکن است آدرس اشتباه وارد شده باشد یا هنوز این کاربر در سیستم ثبت‌نام نکرده باشد.
             </p>
-            <a
-              href="/"
-              className="inline-block px-6 py-2.5 rounded-xl text-xs font-bold bg-[#1D8B94] text-white"
-            >
-              بازگشت به صفحه اصلی
-            </a>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              {isLoggedIn && (
+                <a
+                  href="/dashboard?tab=my-bookings"
+                  className={
+                    isDark
+                      ? "px-5 py-2.5 rounded-xl text-xs font-semibold border border-white/15 bg-white/5 hover:bg-white/15 text-[#98D8D0] transition"
+                      : "px-5 py-2.5 rounded-xl text-xs font-semibold border border-[#1D8B94]/25 bg-white hover:bg-[#E2F4F0] text-[#1D8B94] transition"
+                  }
+                >
+                  نوبت‌های من
+                </a>
+              )}
+
+              <a
+                href="/"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#1D8B94] hover:bg-[#4FB8B4] text-white transition"
+              >
+                بازگشت به صفحه اصلی
+              </a>
+            </div>
           </div>
         ) : ( 
           <div
@@ -512,7 +568,7 @@ export default function DynamicBookingPage() {
 
                           <div className="text-left shrink-0">
                             <span className={isDark ? "text-sm font-bold text-[#98D8D0]" : "text-sm font-bold text-[#1D8B94]"}>
-                              {formatPersianNumber(service.price)} تومان
+                              {formatPrice(service.price)}
                             </span>
                           </div>
                         </div>
@@ -772,7 +828,7 @@ export default function DynamicBookingPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="opacity-75">مبلغ:</span>
-                    <strong>{formatPersianNumber(selectedService.price)} تومان</strong>
+                    <strong>{formatPrice(selectedService.price)}</strong>
                   </div>
                 </div>
 
@@ -784,6 +840,16 @@ export default function DynamicBookingPage() {
                   >
                     رزرو یک نوبت جدید
                   </button>
+                  <a
+                    href="/dashboard?tab=my-bookings"
+                    className={
+                      isDark
+                        ? "px-5 py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-[#98D8D0] border border-white/15 transition"
+                        : "px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#E2F4F0] hover:bg-[#98D8D0]/40 text-[#1D8B94] border border-[#1D8B94]/25 transition"
+                    }
+                  >
+                    مشاهده نوبت‌های من
+                  </a>
                   <a
                     href="/"
                     className={
@@ -833,7 +899,21 @@ export default function DynamicBookingPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => router.push(`/login?redirect=/book/${slug}`)}
+                onClick={() => {
+                  if (slug) {
+                    sessionStorage.setItem(
+                      `soloportal_pending_booking_${slug}`,
+                      JSON.stringify({
+                        step,
+                        selectedServiceId,
+                        selectedSlotId,
+                        clientPhone,
+                        notes,
+                      })
+                    );
+                  }
+                  router.push(`/login?redirect=/book/${slug}`);
+                }}
                 className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-bold bg-[#1D8B94] hover:bg-[#4FB8B4] text-white cursor-pointer transition"
               >
                 رفتن به صفحه ورود / ثبت‌نام
