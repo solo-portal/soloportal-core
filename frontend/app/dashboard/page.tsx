@@ -2,15 +2,28 @@
 
 import { useState, useLayoutEffect, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import DatePicker, { DateObject } from "react-multi-date-picker";
+import persian from "react-date-object/calendars/persian";
+import persian_fa from "react-date-object/locales/persian_fa";
+import gregorian from "react-date-object/calendars/gregorian";
+import gregorian_en from "react-date-object/locales/gregorian_en";
 import { apiRequest } from "@/lib/api";
 
-type DashboardTab = "overview" | "bookings" | "my-bookings" | "services" | "schedule";
+type DashboardTab =
+  | "overview"
+  | "bookings"
+  | "my-bookings"
+  | "services"
+  | "schedule"
+  | "profile";
 
 interface UserProfile {
   id: number;
   email: string;
   full_name: string;
   slug: string;
+  headline?: string | null;
+  bio?: string | null;
 }
 
 interface HostStats {
@@ -75,8 +88,17 @@ export default function FreelancerDashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [userName, setUserName] = useState<string>("");
   const [userSlug, setUserSlug] = useState<string>("");
+  const [userHeadline, setUserHeadline] = useState<string>("");
+  const [userBio, setUserBio] = useState<string>("");
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [apiError, setApiError] = useState<string>("");
+
+  // وضعیت‌های فرم ویرایش پروفایل (تسک ۴)
+  const [profileFullName, setProfileFullName] = useState<string>("");
+  const [profileHeadline, setProfileHeadline] = useState<string>("");
+  const [profileBio, setProfileBio] = useState<string>("");
+  const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false);
+  const [profileMessage, setProfileMessage] = useState<string>("");
 
   // آمار
   const [stats, setStats] = useState<HostStats>({
@@ -102,9 +124,10 @@ export default function FreelancerDashboardPage() {
   const [serviceDesc, setServiceDesc] = useState<string>("");
   const [isSavingService, setIsSavingService] = useState<boolean>(false);
 
-  // وضعیت‌های مدیریت اسلات‌ها (متصل به سرویس)
+  // وضعیت‌های مدیریت اسلات‌ها (متصل به سرویس + تقویم شمسی)
   const [selectedSlotServiceId, setSelectedSlotServiceId] = useState<number | "">("");
   const [slotDate, setSlotDate] = useState<string>("");
+  const [persianSlotDate, setPersianSlotDate] = useState<DateObject | null>(null);
   const [slotStartTime, setSlotStartTime] = useState<string>("10:00");
   const [slotEndTime, setSlotEndTime] = useState<string>("11:00");
   const [slots, setSlots] = useState<TimeSlotItem[]>([]);
@@ -143,6 +166,13 @@ export default function FreelancerDashboardPage() {
       const me = await apiRequest<UserProfile>("/auth/me", { method: "GET" }, true);
       setUserName(me.full_name);
       setUserSlug(me.slug);
+      setUserHeadline(me.headline || "");
+      setUserBio(me.bio || "");
+
+      setProfileFullName(me.full_name || "");
+      setProfileHeadline(me.headline || "");
+      setProfileBio(me.bio || "");
+
       localStorage.setItem(
         "soloportal_demo_user",
         JSON.stringify({
@@ -150,6 +180,8 @@ export default function FreelancerDashboardPage() {
           fullName: me.full_name,
           email: me.email,
           slug: me.slug,
+          headline: me.headline || "",
+          bio: me.bio || "",
         })
       );
 
@@ -215,14 +247,17 @@ export default function FreelancerDashboardPage() {
       tabParam === "bookings" ||
       tabParam === "my-bookings" ||
       tabParam === "services" ||
-      tabParam === "schedule"
+      tabParam === "schedule" ||
+      tabParam === "profile"
     ) {
       setActiveTab(tabParam);
     }
 
-    // مقدار پیش‌فرض تاریخ امروز برای فرم اسلات
-    const today = new Date().toISOString().split("T")[0];
-    setSlotDate(today);
+    // مقدار پیش‌فرض تاریخ امروز (میلادی برای بک‌اند + شمسی برای تقویم UI)
+    const now = new Date();
+    const todayIso = now.toISOString().split("T")[0];
+    setSlotDate(todayIso);
+    setPersianSlotDate(new DateObject({ date: now, calendar: persian, locale: persian_fa }));
 
     setIsMounted(true);
     loadDashboardData();
@@ -292,6 +327,67 @@ export default function FreelancerDashboardPage() {
       }
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2500);
+    }
+  };
+
+  // تبدیل تاریخ انتخاب‌شده در تقویم شمسی به رشته استاندارد میلادی YYYY-MM-DD برای بک‌اند
+  const handlePersianDateChange = (val: DateObject | null) => {
+    setPersianSlotDate(val);
+    if (!val) {
+      setSlotDate("");
+      return;
+    }
+    const gregorianDate = val.convert(gregorian, gregorian_en).format("YYYY-MM-DD");
+    setSlotDate(gregorianDate);
+  };
+
+  // ذخیره تغییرات پروفایل (تسک ۴: PUT /api/v1/users/me)
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileFullName.trim()) {
+      setApiError("لطفاً نام و نام خانوادگی خود را وارد کنید.");
+      return;
+    }
+
+    setIsSavingProfile(true);
+    setProfileMessage("");
+    setApiError("");
+
+    try {
+      const updated = await apiRequest<UserProfile>(
+        "/users/me",
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            full_name: profileFullName.trim(),
+            headline: profileHeadline.trim() || null,
+            bio: profileBio.trim() || null,
+          }),
+        },
+        true
+      );
+
+      setUserName(updated.full_name || profileFullName.trim());
+      setUserHeadline(updated.headline ?? profileHeadline.trim());
+      setUserBio(updated.bio ?? profileBio.trim());
+
+      const existingRaw = localStorage.getItem("soloportal_demo_user");
+      const existing = existingRaw ? JSON.parse(existingRaw) : {};
+      localStorage.setItem(
+        "soloportal_demo_user",
+        JSON.stringify({
+          ...existing,
+          fullName: updated.full_name || profileFullName.trim(),
+          headline: updated.headline ?? profileHeadline.trim(),
+          bio: updated.bio ?? profileBio.trim(),
+        })
+      );
+
+      setProfileMessage("✓ اطلاعات پروفایل و عنوان تخصصی با موفقیت ذخیره شد.");
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : "خطا در به‌روزرسانی پروفایل");
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -608,6 +704,11 @@ export default function FreelancerDashboardPage() {
                 <div className={isDark ? "font-bold text-sm text-white truncate" : "font-bold text-sm text-[#04222B] truncate"}>
                   {userName || "در حال بارگذاری..."}
                 </div>
+                {userHeadline && (
+                  <div className={isDark ? "text-[11px] text-[#E2F4F0]/70 truncate" : "text-[11px] text-[#0A3D4A]/70 truncate"}>
+                    {userHeadline}
+                  </div>
+                )}
                 <div dir="ltr" className={isDark ? "text-[11px] text-[#98D8D0] truncate text-right" : "text-[11px] text-[#1D8B94] truncate text-right"}>
                   /book/{userSlug}
                 </div>
@@ -698,6 +799,24 @@ export default function FreelancerDashboardPage() {
               >
                 <span>⏰</span>
                 <span>تقویم و ساعات کاری</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileMessage("");
+                  setActiveTab("profile");
+                }}
+                className={
+                  activeTab === "profile"
+                    ? "w-full text-right px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold bg-[#1D8B94] text-white shadow cursor-pointer flex items-center gap-2.5 transition"
+                    : isDark
+                    ? "w-full text-right px-4 py-3 rounded-2xl text-xs sm:text-sm font-medium text-[#E2F4F0]/80 hover:bg-white/10 cursor-pointer flex items-center gap-2.5 transition"
+                    : "w-full text-right px-4 py-3 rounded-2xl text-xs sm:text-sm font-medium text-[#0A3D4A] hover:bg-[#E2F4F0] cursor-pointer flex items-center gap-2.5 transition"
+                }
+              >
+                <span>👤</span>
+                <span>پروفایل و عنوان تخصصی</span>
               </button>
             </nav>
 
@@ -828,23 +947,32 @@ export default function FreelancerDashboardPage() {
                   <p className="text-xs opacity-70 py-4 text-center">هنوز رزروی ثبت نشده است.</p>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-right text-xs sm:text-sm">
+                    <table className="w-full table-fixed text-right text-xs sm:text-sm">
                       <thead>
                         <tr className={isDark ? "border-b border-white/10 text-[#98D8D0]/80" : "border-b border-[#98D8D0]/40 text-[#0A3D4A]/80"}>
-                          <th className="py-3 px-2 font-semibold">مراجع</th>
-                          <th className="py-3 px-2 font-semibold">خدمت انتخابی</th>
-                          <th className="py-3 px-2 font-semibold">تاریخ و زمان</th>
-                          <th className="py-3 px-2 font-semibold">وضعیت</th>
-                          <th className="py-3 px-2 font-semibold">عملیات</th>
+                          <th className="w-36 py-3 px-2 font-semibold truncate">مراجع</th>
+                          <th className="w-48 py-3 px-2 font-semibold truncate">خدمت انتخابی</th>
+                          <th className="w-44 py-3 px-2 font-semibold truncate">تاریخ و زمان</th>
+                          <th className="w-28 py-3 px-2 font-semibold truncate">وضعیت</th>
+                          <th className="w-40 py-3 px-2 font-semibold truncate">عملیات</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
                         {bookings.slice(0, 5).map((b) => (
                           <tr key={b.id} className={isDark ? "hover:bg-white/5" : "hover:bg-[#E2F4F0]/50"}>
-                            <td className="py-3.5 px-2 font-bold">{b.client_name}</td>
-                            <td className="py-3.5 px-2">{getServiceTitleById(b.service_id, b.service_title)}</td>
-                            <td className="py-3.5 px-2">{formatDateTime(b.start_time)}</td>
-                            <td className="py-3.5 px-2">
+                            <td className="py-3.5 px-2 font-bold truncate" title={b.client_name}>
+                              {b.client_name}
+                            </td>
+                            <td
+                              className="py-3.5 px-2 truncate"
+                              title={getServiceTitleById(b.service_id, b.service_title)}
+                            >
+                              {getServiceTitleById(b.service_id, b.service_title)}
+                            </td>
+                            <td className="py-3.5 px-2 truncate" title={formatDateTime(b.start_time)}>
+                              {formatDateTime(b.start_time)}
+                            </td>
+                            <td className="py-3.5 px-2 truncate">
                               {b.status === "confirmed" ? (
                                 <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400">
                                   تایید شده
@@ -855,7 +983,7 @@ export default function FreelancerDashboardPage() {
                                 </span>
                               )}
                             </td>
-                            <td className="py-3.5 px-2">
+                            <td className="py-3.5 px-2 truncate">
                               <button
                                 type="button"
                                 onClick={() => setSelectedBooking(b)}
@@ -940,25 +1068,34 @@ export default function FreelancerDashboardPage() {
                 <p className="text-xs opacity-70 py-6 text-center">موردی برای نمایش وجود ندارد.</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-right text-xs sm:text-sm">
+                  <table className="w-full table-fixed text-right text-xs sm:text-sm">
                     <thead>
                       <tr className={isDark ? "border-b border-white/10 text-[#98D8D0]/80" : "border-b border-[#98D8D0]/40 text-[#0A3D4A]/80"}>
-                        <th className="py-3 px-2 font-semibold">شناسه</th>
-                        <th className="py-3 px-2 font-semibold">مراجع</th>
-                        <th className="py-3 px-2 font-semibold">خدمت</th>
-                        <th className="py-3 px-2 font-semibold">تاریخ و زمان</th>
-                        <th className="py-3 px-2 font-semibold">وضعیت</th>
-                        <th className="py-3 px-2 font-semibold">عملیات</th>
+                        <th className="w-20 py-3 px-2 font-semibold truncate">شناسه</th>
+                        <th className="w-36 py-3 px-2 font-semibold truncate">مراجع</th>
+                        <th className="w-48 py-3 px-2 font-semibold truncate">خدمت</th>
+                        <th className="w-44 py-3 px-2 font-semibold truncate">تاریخ و زمان</th>
+                        <th className="w-28 py-3 px-2 font-semibold truncate">وضعیت</th>
+                        <th className="w-40 py-3 px-2 font-semibold truncate">عملیات</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {filteredBookings.map((b) => (
                         <tr key={b.id} className={isDark ? "hover:bg-white/5" : "hover:bg-[#E2F4F0]/50"}>
-                          <td className="py-3.5 px-2 font-mono text-xs opacity-80">#{b.id}</td>
-                          <td className="py-3.5 px-2 font-bold">{b.client_name}</td>
-                          <td className="py-3.5 px-2">{getServiceTitleById(b.service_id, b.service_title)}</td>
-                          <td className="py-3.5 px-2">{formatDateTime(b.start_time)}</td>
-                          <td className="py-3.5 px-2">
+                          <td className="py-3.5 px-2 font-mono text-xs opacity-80 truncate">#{b.id}</td>
+                          <td className="py-3.5 px-2 font-bold truncate" title={b.client_name}>
+                            {b.client_name}
+                          </td>
+                          <td
+                            className="py-3.5 px-2 truncate"
+                            title={getServiceTitleById(b.service_id, b.service_title)}
+                          >
+                            {getServiceTitleById(b.service_id, b.service_title)}
+                          </td>
+                          <td className="py-3.5 px-2 truncate" title={formatDateTime(b.start_time)}>
+                            {formatDateTime(b.start_time)}
+                          </td>
+                          <td className="py-3.5 px-2 truncate">
                             {b.status === "confirmed" ? (
                               <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400">
                                 تایید شده
@@ -969,23 +1106,25 @@ export default function FreelancerDashboardPage() {
                               </span>
                             )}
                           </td>
-                          <td className="py-3.5 px-2 flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedBooking(b)}
-                              className="px-3 py-1.5 rounded-xl text-xs bg-[#1D8B94]/25 hover:bg-[#1D8B94] text-[#98D8D0] hover:text-white cursor-pointer transition"
-                            >
-                              جزئیات
-                            </button>
-                            {b.status === "confirmed" && (
+                          <td className="py-3.5 px-2">
+                            <div className="flex items-center gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => handleCancelBooking(b.id)}
-                                className="px-3 py-1.5 rounded-xl text-xs bg-rose-500/15 hover:bg-rose-500 text-rose-300 hover:text-white cursor-pointer transition"
+                                onClick={() => setSelectedBooking(b)}
+                                className="px-2.5 py-1.5 rounded-xl text-xs bg-[#1D8B94]/25 hover:bg-[#1D8B94] text-[#98D8D0] hover:text-white cursor-pointer transition shrink-0"
                               >
-                                لغو نوبت
+                                جزئیات
                               </button>
-                            )}
+                              {b.status === "confirmed" && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleCancelBooking(b.id)}
+                                  className="px-2.5 py-1.5 rounded-xl text-xs bg-rose-500/15 hover:bg-rose-500 text-rose-300 hover:text-white cursor-pointer transition shrink-0"
+                                >
+                                  لغو نوبت
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1047,21 +1186,21 @@ export default function FreelancerDashboardPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-right text-xs sm:text-sm">
+                  <table className="w-full table-fixed text-right text-xs sm:text-sm">
                     <thead>
                       <tr className={isDark ? "border-b border-white/10 text-[#98D8D0]/80" : "border-b border-[#98D8D0]/40 text-[#0A3D4A]/80"}>
-                        <th className="py-3 px-2 font-semibold">مشاور / فریلنسر</th>
-                        <th className="py-3 px-2 font-semibold">خدمت</th>
-                        <th className="py-3 px-2 font-semibold">مبلغ</th>
-                        <th className="py-3 px-2 font-semibold">تاریخ و زمان</th>
-                        <th className="py-3 px-2 font-semibold">وضعیت</th>
-                        <th className="py-3 px-2 font-semibold">عملیات</th>
+                        <th className="w-36 py-3 px-2 font-semibold truncate">مشاور / فریلنسر</th>
+                        <th className="w-48 py-3 px-2 font-semibold truncate">خدمت</th>
+                        <th className="w-28 py-3 px-2 font-semibold truncate">مبلغ</th>
+                        <th className="w-44 py-3 px-2 font-semibold truncate">تاریخ و زمان</th>
+                        <th className="w-28 py-3 px-2 font-semibold truncate">وضعیت</th>
+                        <th className="w-40 py-3 px-2 font-semibold truncate">عملیات</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {myBookings.map((b) => (
                         <tr key={b.id} className={isDark ? "hover:bg-white/5" : "hover:bg-[#E2F4F0]/50"}>
-                          <td className="py-3.5 px-2 font-bold">
+                          <td className="py-3.5 px-2 font-bold truncate" title={b.host_name}>
                             {b.host_slug ? (
                               <a
                                 href={`/book/${b.host_slug}`}
@@ -1073,10 +1212,19 @@ export default function FreelancerDashboardPage() {
                               b.host_name
                             )}
                           </td>
-                          <td className="py-3.5 px-2">{getServiceTitleById(b.service_id, b.service_title)}</td>
-                          <td className="py-3.5 px-2">{formatPrice(b.price)}</td>
-                          <td className="py-3.5 px-2">{formatDateTime(b.start_time)}</td>
-                          <td className="py-3.5 px-2">
+                          <td
+                            className="py-3.5 px-2 truncate"
+                            title={getServiceTitleById(b.service_id, b.service_title)}
+                          >
+                            {getServiceTitleById(b.service_id, b.service_title)}
+                          </td>
+                          <td className="py-3.5 px-2 truncate" title={formatPrice(b.price)}>
+                            {formatPrice(b.price)}
+                          </td>
+                          <td className="py-3.5 px-2 truncate" title={formatDateTime(b.start_time)}>
+                            {formatDateTime(b.start_time)}
+                          </td>
+                          <td className="py-3.5 px-2 truncate">
                             {b.status === "confirmed" ? (
                               <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400">
                                 تایید شده
@@ -1087,7 +1235,7 @@ export default function FreelancerDashboardPage() {
                               </span>
                             )}
                           </td>
-                          <td className="py-3.5 px-2">
+                          <td className="py-3.5 px-2 truncate">
                             {b.status === "confirmed" ? (
                               <button
                                 type="button"
@@ -1295,7 +1443,7 @@ export default function FreelancerDashboardPage() {
             </div>
           )}
 
-          {/* تب ۴: تقویم و ساعات کاری (ساخت اسلات متصل به سرویس) */}
+          {/* تب ۴: تقویم و ساعات کاری (ساخت اسلات متصل به سرویس با تقویم شمسی) */}
           {activeTab === "schedule" && (
             <div
               className={
@@ -1309,7 +1457,7 @@ export default function FreelancerDashboardPage() {
                   مدیریت بازه‌های زمانی (Time Slots)
                 </h1>
                 <p className="text-xs opacity-75 mt-1">
-                  برای هر خدمت، تاریخ و ساعت شروع را انتخاب کنید؛ ساعت پایان به‌صورت خودکار محاسبه می‌شود
+                  برای هر خدمت، تاریخ شمسی و ساعت شروع را انتخاب کنید؛ ساعت پایان به‌صورت خودکار محاسبه می‌شود
                 </p>
               </div>
 
@@ -1349,16 +1497,21 @@ export default function FreelancerDashboardPage() {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-semibold mb-1.5">۲. تاریخ *</label>
-                        <input
-                          type="date"
-                          value={slotDate}
-                          onChange={(e) => setSlotDate(e.target.value)}
-                          className={
+                        <label className="block text-xs font-semibold mb-1.5">۲. تاریخ شمسی *</label>
+                        <DatePicker
+                          value={persianSlotDate}
+                          onChange={handlePersianDateChange}
+                          calendar={persian}
+                          locale={persian_fa}
+                          calendarPosition="bottom-right"
+                          format="YYYY/MM/DD"
+                          containerClassName="w-full"
+                          inputClass={
                             isDark
-                              ? "w-full px-3 py-2.5 rounded-xl border bg-[#04222B] border-white/20 text-xs text-white focus:outline-none"
-                              : "w-full px-3 py-2.5 rounded-xl border bg-white border-[#98D8D0] text-xs text-[#04222B] focus:outline-none"
+                              ? "w-full px-3 py-2.5 rounded-xl border bg-[#04222B] border-white/20 text-xs text-white focus:outline-none text-right"
+                              : "w-full px-3 py-2.5 rounded-xl border bg-white border-[#98D8D0] text-xs text-[#04222B] focus:outline-none text-right"
                           }
+                          placeholder="انتخاب تاریخ شمسی"
                         />
                       </div>
 
@@ -1465,6 +1618,97 @@ export default function FreelancerDashboardPage() {
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* تب ۵: ویرایش پروفایل و عنوان تخصصی (تسک ۴) */}
+          {activeTab === "profile" && (
+            <div
+              className={
+                isDark
+                  ? "p-6 rounded-3xl border bg-[#04222B]/75 border-white/15 space-y-6 text-right shadow-xl"
+                  : "p-6 rounded-3xl border bg-white/90 border-white space-y-6 text-right shadow-md"
+              }
+            >
+              <div>
+                <h1 className={isDark ? "text-xl font-extrabold text-white" : "text-xl font-extrabold text-[#04222B]"}>
+                  پروفایل و عنوان تخصصی
+                </h1>
+                <p className="text-xs opacity-75 mt-1">
+                  این اطلاعات در کارت‌های صفحه جستجوی متخصصان (/book) و بالای صفحه رزرو اختصاصی شما نمایش داده می‌شود
+                </p>
+              </div>
+
+              <form onSubmit={handleSaveProfile} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5">
+                      نام و نام خانوادگی *
+                    </label>
+                    <input
+                      type="text"
+                      value={profileFullName}
+                      onChange={(e) => setProfileFullName(e.target.value)}
+                      placeholder="مثلاً: شقایق خوبکار"
+                      className={
+                        isDark
+                          ? "w-full px-4 py-2.5 rounded-xl border bg-white/5 border-white/15 text-xs sm:text-sm text-white focus:outline-none focus:border-[#4FB8B4]"
+                          : "w-full px-4 py-2.5 rounded-xl border bg-[#F2F8F6] border-[#98D8D0] text-xs sm:text-sm text-[#04222B] focus:outline-none focus:border-[#1D8B94]"
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5">
+                      عنوان تخصصی (Headline)
+                    </label>
+                    <input
+                      type="text"
+                      value={profileHeadline}
+                      onChange={(e) => setProfileHeadline(e.target.value)}
+                      placeholder="مثلاً: مشاور تحصیلی و برنامه‌ریزی کنکور"
+                      className={
+                        isDark
+                          ? "w-full px-4 py-2.5 rounded-xl border bg-white/5 border-white/15 text-xs sm:text-sm text-white focus:outline-none focus:border-[#4FB8B4]"
+                          : "w-full px-4 py-2.5 rounded-xl border bg-[#F2F8F6] border-[#98D8D0] text-xs sm:text-sm text-[#04222B] focus:outline-none focus:border-[#1D8B94]"
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5">
+                    درباره من / معرفی کوتاه (Bio)
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={profileBio}
+                    onChange={(e) => setProfileBio(e.target.value)}
+                    placeholder="سوابق، حوزه‌های مشاوره و توضیحاتی که مراجعان قبل از رزرو بهتر است بدانند..."
+                    className={
+                      isDark
+                        ? "w-full px-4 py-2.5 rounded-xl border bg-white/5 border-white/15 text-xs sm:text-sm text-white focus:outline-none focus:border-[#4FB8B4]"
+                        : "w-full px-4 py-2.5 rounded-xl border bg-[#F2F8F6] border-[#98D8D0] text-xs sm:text-sm text-[#04222B] focus:outline-none focus:border-[#1D8B94]"
+                    }
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                  {profileMessage ? (
+                    <span className="text-xs text-emerald-400 font-semibold">{profileMessage}</span>
+                  ) : (
+                    <span></span>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isSavingProfile}
+                    className="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-[#1D8B94] hover:bg-[#4FB8B4] disabled:opacity-60 text-white shadow-md cursor-pointer transition"
+                  >
+                    {isSavingProfile ? "در حال ذخیره..." : "ذخیره تغییرات پروفایل ✓"}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </main>
