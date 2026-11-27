@@ -9,6 +9,8 @@ interface FreelancerProfile {
   full_name: string;
   email: string;
   slug: string;
+  headline?: string | null;
+  bio?: string | null;
 }
 
 interface ServiceOption {
@@ -152,7 +154,7 @@ export default function DynamicBookingPage() {
         setNotFoundError(
           err instanceof Error ? err.message : "پورتال مورد نظر یافت نشد."
         );
-      } finally { 
+      } finally {
         setIsLoadingPage(false);
       }
     };
@@ -309,7 +311,7 @@ export default function DynamicBookingPage() {
             </span>
           </a>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <button
               type="button"
               onClick={toggleTheme}
@@ -330,6 +332,17 @@ export default function DynamicBookingPage() {
                 </svg>
               )}
             </button>
+
+            <a
+              href="/book"
+              className={
+                isDark
+                  ? "text-xs sm:text-sm font-medium px-3.5 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/15 text-[#98D8D0] transition"
+                  : "text-xs sm:text-sm font-medium px-3.5 py-2 rounded-xl border border-[#1D8B94]/25 bg-white hover:bg-[#E2F4F0] text-[#1D8B94] transition"
+              }
+            >
+              جستجوی متخصصان
+            </a>
 
             {isLoggedIn && (
               <a
@@ -352,7 +365,7 @@ export default function DynamicBookingPage() {
                   : "text-xs sm:text-sm font-medium px-4 py-2 rounded-xl border border-[#1D8B94]/25 bg-white hover:bg-[#E2F4F0] text-[#04222B] transition"
               }
             >
-              بازگشت به صفحه اصلی
+              صفحه اصلی
             </a>
           </div>
         </div>
@@ -385,6 +398,13 @@ export default function DynamicBookingPage() {
               ممکن است آدرس اشتباه وارد شده باشد یا هنوز این کاربر در سیستم ثبت‌نام نکرده باشد.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <a
+                href="/book"
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#1D8B94] hover:bg-[#4FB8B4] text-white transition"
+              >
+                مشاهده لیست متخصصان
+              </a>
+
               {isLoggedIn && (
                 <a
                   href="/dashboard?tab=my-bookings"
@@ -400,13 +420,17 @@ export default function DynamicBookingPage() {
 
               <a
                 href="/"
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#1D8B94] hover:bg-[#4FB8B4] text-white transition"
+                className={
+                  isDark
+                    ? "px-5 py-2.5 rounded-xl text-xs font-semibold border border-white/15 bg-white/5 hover:bg-white/10 text-[#E2F4F0] transition"
+                    : "px-5 py-2.5 rounded-xl text-xs font-semibold border border-[#1D8B94]/25 bg-white hover:bg-[#E2F4F0] text-[#04222B] transition"
+                }
               >
                 بازگشت به صفحه اصلی
               </a>
             </div>
           </div>
-        ) : ( 
+        ) : (
           <div
             className={
               isDark
@@ -418,34 +442,51 @@ export default function DynamicBookingPage() {
             <div
               className={
                 isDark
-                  ? "flex flex-wrap items-center justify-between gap-4 border-b pb-5 border-white/10"
-                  : "flex flex-wrap items-center justify-between gap-4 border-b pb-5 border-[#98D8D0]/40"
+                  ? "border-b pb-5 border-white/10 space-y-3.5"
+                  : "border-b pb-5 border-[#98D8D0]/40 space-y-3.5"
               }
             >
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-[#1D8B94] text-white font-bold text-base flex items-center justify-center shadow-sm">
-                  {freelancer.full_name.charAt(0)}
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-[#1D8B94] text-white font-bold text-lg flex items-center justify-center shadow-sm shrink-0">
+                    {freelancer.full_name.charAt(0)}
+                  </div>
+                  <div className="text-right">
+                    <h1 className={isDark ? "font-bold text-base sm:text-lg text-white" : "font-bold text-base sm:text-lg text-[#04222B]"}>
+                      {freelancer.full_name}
+                    </h1>
+                    <p className={isDark ? "text-xs sm:text-sm text-[#98D8D0] font-medium mt-0.5" : "text-xs sm:text-sm text-[#1D8B94] font-medium mt-0.5"}>
+                      {freelancer.headline || "مشاور و متخصص در سولوپورتال"}
+                    </p>
+                    <p dir="ltr" className={isDark ? "text-[11px] text-[#E2F4F0]/60 text-right mt-0.5" : "text-[11px] text-[#0A3D4A]/65 text-right mt-0.5"}>
+                      /book/{freelancer.slug}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <h1 className={isDark ? "font-bold text-base sm:text-lg text-white" : "font-bold text-base sm:text-lg text-[#04222B]"}>
-                    {freelancer.full_name}
-                  </h1>
-                  <p className={isDark ? "text-xs text-[#98D8D0]" : "text-xs text-[#1D8B94]"}>
-                    پورتال اختصاصی رزرو آنلاین • /book/{freelancer.slug}
-                  </p>
-                </div>
+
+                <span
+                  className={
+                    isDark
+                      ? "inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-400/25"
+                      : "inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/25"
+                  }
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  پورتال فعال
+                </span>
               </div>
 
-              <span
-                className={
-                  isDark
-                    ? "inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-400/25"
-                    : "inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/25"
-                }
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                پورتال فعال
-              </span>
+              {freelancer.bio && (
+                <p
+                  className={
+                    isDark
+                      ? "text-xs text-[#E2F4F0]/80 leading-relaxed bg-white/5 border border-white/10 rounded-2xl p-3.5 text-right"
+                      : "text-xs text-[#0A3D4A]/85 leading-relaxed bg-[#F2F8F6] border border-[#98D8D0]/40 rounded-2xl p-3.5 text-right"
+                  }
+                >
+                  {freelancer.bio}
+                </p>
+              )}
             </div>
 
             {/* نوار مراحل ۳ گانه (بدون امکان پرش بدون تکمیل مرحله قبل) */}
@@ -579,14 +620,14 @@ export default function DynamicBookingPage() {
 
                 <div className="pt-3 flex items-center justify-between">
                   <a
-                    href="/"
+                    href="/book"
                     className={
                       isDark
                         ? "text-xs text-[#98D8D0] hover:text-white transition"
                         : "text-xs text-[#1D8B94] hover:text-[#04222B] transition"
                     }
                   >
-                    ← بازگشت به صفحه اصلی
+                    ← بازگشت به لیست متخصصان
                   </a>
 
                   <button
@@ -647,7 +688,7 @@ export default function DynamicBookingPage() {
                     type="button"
                     onClick={() => setStep(1)}
                     className={
-                        isDark
+                      isDark
                         ? "px-5 py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-[#E2F4F0] cursor-pointer transition"
                         : "px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#E2F4F0] hover:bg-[#98D8D0]/40 text-[#04222B] cursor-pointer transition"
                     }
@@ -785,7 +826,7 @@ export default function DynamicBookingPage() {
               </form>
             )}
 
-            {/* صفحه رسید تایید رزرو (بدون دکمه ورود به پنل فریلنسر) */}
+            {/* صفحه رسید تایید رزرو */}
             {confirmedBookingId !== null && selectedService && selectedSlot && (
               <div className="py-6 text-center space-y-5">
                 <div className="w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-400 flex items-center justify-center mx-auto">
